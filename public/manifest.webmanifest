@@ -1,0 +1,40 @@
+{
+  "name": "Scratch That · integ.life",
+  "short_name": "Scratch That",
+  "description": "A paper scratch card and a coin. Rub the silver off in ragged streaks, push the shavings around, and find out what you won: usually five paid minutes of staring at the wall. No money, no sign-up, and you can write a card for a friend.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#143528",
+  "theme_color": "#143528",
+  "categories": [
+    "games",
+    "entertainment",
+    "lifestyle"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

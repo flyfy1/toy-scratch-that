@@ -1,0 +1,62 @@
+# Scratch That
+
+> A paper scratch card and a coin. Rub the silver off in ragged streaks, push the shavings around, and find out what you won: usually five paid minutes of staring at the wall. No money, no sign-up, and you can write a card for a friend.
+
+Scratch That (刮一张 (zh-CN), Rasca y Verás (es), Grattez Voir (fr), けずってスクラッチ (ja)) is a free browser toy at https://scratch.integ.life/ by Integ Life. It opens straight into play: no sign-up, no download, no ads, no tutorial. It works with a mouse or a touchscreen on phones, tablets and computers.
+
+## How to play
+
+1. Press and rub anywhere on the card with a finger or the mouse. A brass token scrapes the silver off in ragged streaks; the first pass leaves flecks behind and a second pass wipes them clean. Shavings fly off and slide off the card.
+2. Find three matching pictures in the big panel. Three alike is a win and gets circled in red marker; one short gets a rubber stamp. Then scratch the prize strip to see what you won, for example "5 paid minutes of staring at the wall".
+3. The strip marked "Do not scratch here" can be scratched. The card will tell you off.
+4. Press "Another one" for the next card. Your cards and wins are counted on your device only.
+5. Type a prize in the box at the top, for example "I owe you a bubble tea". It goes into the page link (?w=...). A friend who opens the link gets a card that always wins your prize.
+
+## Facts
+
+- URL: https://scratch.integ.life/
+- Price: free
+- Platforms: any modern web browser (desktop and mobile)
+- Languages: English, 简体中文 (Simplified Chinese), Español, Français and 日本語 (Japanese), picked from the browser language (default English)
+- Sound: synthesised live with the Web Audio API; vibration on Android
+- Made by: Integ Life (https://integ.life/), first published 2026-11-25
+
+## FAQ
+
+**Is there a scratch card I can scratch online for free?**
+Yes. Scratch That at scratch.integ.life is a free browser toy. Rub the silver panel with your finger or mouse and it scrapes off the way a real card does, with shavings and sound. Nothing to install and no account.
+
+**Can I win money?**
+No. It is not a lottery and no money is involved in any direction. Prizes are jokes, such as "5 paid minutes of staring at the wall" or "one nap, do not get caught".
+
+**Can I make a scratch card for a friend?**
+Yes. Type a prize in the box at the top, for example "I owe you a bubble tea". The prize is stored in the page link. Send the link and your friend gets a card that always wins your prize.
+
+**What happens if I scratch the "do not scratch here" strip?**
+The card tells you off. Nothing else happens; your prize still counts.
+
+**Is Scratch That free?**
+Yes. It is free, with no sign-up, no download and no ads. It runs in any modern browser on phones, tablets and computers.
+
+**Does it have sound and vibration?**
+Yes. The scraping is synthesised live in the browser with the Web Audio API and follows the speed of your finger; it sounds different on foil and on bare paper. There are no audio files to load. On Android phones you also feel a light buzz while there is foil under the coin; iPhone browsers do not support web vibration.
+
+**Which languages does it support?**
+English, 简体中文 (Simplified Chinese), Español, Français and 日本語 (Japanese). The language is picked automatically from your browser settings; any other language falls back to English.
+
+**Who made it?**
+Integ Life (integ.life). Scratch That is one of eight small stress-relief toys, together with Charge Burst, Void Harvest, Glass Smash, Chain Pop, Knock on Wood, Lap Cat, Squishy Bun. More games are at games.integ.life.
+
+**Is any personal data collected?**
+No account and no personal data. At most, anonymous usage statistics (page views and play counts) are collected.
+
+## Related
+
+- [Charge Burst](https://charge.integ.life/): Hold to annoy a pufferfish until it puffs up and blows its spines off.
+- [Void Harvest](https://void.integ.life/): Your cursor is a black hole: swallow the socks, receipts, client emails and Monday. Sometimes it gives one sock back.
+- [Glass Smash](https://smash.integ.life/): Smash a pane of glass with the word you hate written on it.
+- [Chain Pop](https://pop.integ.life/): A sheet of parcel bubble wrap that never runs out. One bubble refuses to pop.
+- [Knock on Wood](https://knock.integ.life/): Tap a wooden fish. Merit +1.
+- [Lap Cat](https://purr.integ.life/): Pet a soft, purring cat on your screen. Mind the belly.
+- [Squishy Bun](https://squish.integ.life/): Squeeze a soft mochi bun. It slowly forgives you.
+- [Integ Games](https://games.integ.life/): more browser games

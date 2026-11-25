@@ -81,6 +81,14 @@ export const IconPurr = () => (
   </svg>
 )
 
+/** squish: a soft bun sitting on the table, with a tiny face. */
+export const IconSquish = () => (
+  <svg {...S}>
+    <path d="M3.6 17.2c-.9-4.6 3-9.4 8.4-9.4s9.3 4.8 8.4 9.4c-.2 1-1 1.6-2 1.6H5.6c-1 0-1.8-.6-2-1.6Z" />
+    <path d="M9.4 13.4v.4M14.6 13.4v.4M11 15.4c.3.5.7.5 1 0 .3.5.7.5 1 0" />
+  </svg>
+)
+
 /** scratch: a card with a zigzag scratched through its panel. */
 export const IconScratch = () => (
   <svg {...S}>
@@ -96,6 +104,7 @@ export const TOY_ICONS: Record<ToyId, () => JSX.Element> = {
   pop: IconPop,
   knock: IconKnock,
   purr: IconPurr,
+  squish: IconSquish,
   scratch: IconScratch,
 }
 
