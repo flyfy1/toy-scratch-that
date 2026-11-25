@@ -500,9 +500,11 @@ function underPrize(g: CanvasRenderingContext2D, card: CardSpec, px: number) {
   g.fillStyle = card.kind === 'win' || card.kind === 'gift' ? '#2B2420' : '#5A5045'
   g.textAlign = 'center'
   g.textBaseline = 'middle'
-  const { lines, size } = wrapFit(g, card.prizeText, 700, 0.95, w - 1.2, 2)
+  // the jackpot's stamp lands on the right of the box: its text keeps clear of it
+  const room = gold ? 3.4 : 0
+  const { lines, size } = wrapFit(g, card.prizeText, 700, 0.95, w - 1.2 - room, 2)
   const lh = size * 1.22
-  lines.forEach((l, i) => g.fillText(l, x0 + w / 2, y0 + h / 2 + (i - (lines.length - 1) / 2) * lh + size * 0.04))
+  lines.forEach((l, i) => g.fillText(l, x0 + (w - room) / 2, y0 + h / 2 + (i - (lines.length - 1) / 2) * lh + size * 0.04))
   g.restore()
 }
 

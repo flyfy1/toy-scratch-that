@@ -2,7 +2,6 @@
 export default {
   scratch_prize_dayoff_alt: "本日は休日。すでに退社済みです",
   scratch_how_dayoff_alt: "そのまま休む",
-  scratch_how_paid_break: "スマホを持って離席",
   scratch_prize_skip_meeting: "会議 1 回免除（議事録は担当）",
   scratch_how_skip_meeting: "「別件あり」とだけ伝える",
   scratch_prize_last_snack: "お土産のお菓子、最後の 1 個",
@@ -10,7 +9,6 @@ export default {
   scratch_prize_early_night: "今夜は早寝 1 回（どうせしない）",
   scratch_how_early_night: "スマホを置く。そう、これを",
   scratch_prize_early_night_alt: "もう 22 時過ぎ。賞品は布団です",
-  scratch_how_cat_cover: "社員証を猫にかける",
   scratch_prize_not_your_fault: "本日の責任は、あなた以外に",
   scratch_how_not_your_fault: "「メールでお伝えした通り」と言う",
   scratch_prize_lunch_hour: "昼休み、きっちり 1 時間。電話番なし",
@@ -24,7 +22,6 @@ export default {
   scratch_prize_monday_fuel: "おかわり 1 杯。効果は保証なし",
   scratch_how_monday_fuel: "両手でカップを持つ",
   scratch_prize_monday_fuel_alt: "月曜です。濃いめで（やはり自腹）",
-  scratch_how_boss_lunch: "部長に見せる（自己責任）",
   scratch_prize_squishy: "もちもち 1 個。握っても怒りません",
   scratch_how_squishy: "squish.integ.life を開く",
   scratch_prize_free_card: "もう 1 枚。本当に。次は必ず当たり",

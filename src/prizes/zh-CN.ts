@@ -2,7 +2,6 @@
 export default {
   scratch_prize_dayoff_alt: "今天周末，你本来就不用上班",
   scratch_how_dayoff_alt: "继续躺着，不用请示",
-  scratch_how_paid_break: "带上手机，从容入座",
   scratch_prize_skip_meeting: "免开会一次（会后补纪要）",
   scratch_how_skip_meeting: "回复「收到」，然后不去",
   scratch_prize_last_snack: "同事带的零食，最后一包归你",
@@ -10,7 +9,6 @@ export default {
   scratch_prize_early_night: "今晚早睡一次（你不会的）",
   scratch_how_early_night: "放下手机，对，就是这台",
   scratch_prize_early_night_alt: "都这个点了，奖品是去睡觉",
-  scratch_how_cat_cover: "把工牌挂在猫脖子上",
   scratch_prize_not_your_fault: "今天的锅，不用你背",
   scratch_how_not_your_fault: "转发聊天记录即可",
   scratch_prize_lunch_hour: "午休完整一小时，没人找你",
@@ -24,7 +22,6 @@ export default {
   scratch_prize_monday_fuel: "续杯一次，疗效不保证",
   scratch_how_monday_fuel: "双手捧杯，闭眼三秒",
   scratch_prize_monday_fuel_alt: "周一续命：双份（仍然自费）",
-  scratch_how_boss_lunch: "向领导出示本凭证（后果自负）",
   scratch_prize_squishy: "团子一只，随便捏，不还手",
   scratch_how_squishy: "打开 squish.integ.life",
   scratch_prize_free_card: "再来一张（这次是真的，必中）",

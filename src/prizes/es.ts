@@ -2,7 +2,6 @@
 export default {
   scratch_prize_dayoff_alt: "Es fin de semana. Ya has salido.",
   scratch_how_dayoff_alt: "sigue en el sofá",
-  scratch_how_paid_break: "llévate el móvil",
   scratch_prize_skip_meeting: "Te libras de una reunión (el acta la haces tú)",
   scratch_how_skip_meeting: "di que tienes otra reunión",
   scratch_prize_last_snack: "El último trozo de tortilla es tuyo",
@@ -10,7 +9,6 @@ export default {
   scratch_prize_early_night: "Hoy te acuestas pronto (no lo harás)",
   scratch_how_early_night: "suelta el móvil. sí, este",
   scratch_prize_early_night_alt: "Son más de las diez. Tu premio: la cama.",
-  scratch_how_cat_cover: "déjale tu silla al gato",
   scratch_prize_not_your_fault: "Hoy el marrón se lo come otro",
   scratch_how_not_your_fault: "di «eso no es de mi departamento»",
   scratch_prize_lunch_hour: "Sobremesa completa. Nadie mira el reloj.",
@@ -24,7 +22,6 @@ export default {
   scratch_prize_monday_fuel: "Otro café. Sin garantía de resultados.",
   scratch_how_monday_fuel: "sujeta la taza con las dos manos",
   scratch_prize_monday_fuel_alt: "Lunes: que sea doble. Sigues invitando tú.",
-  scratch_how_boss_lunch: "enséñaselo al jefe (bajo tu responsabilidad)",
   scratch_prize_squishy: "Un bollito blandito. No se defiende.",
   scratch_how_squishy: "abre squish.integ.life",
   scratch_prize_free_card: "Otro rasca. De verdad. El siguiente toca.",

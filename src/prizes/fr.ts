@@ -2,7 +2,6 @@
 export default {
   scratch_prize_dayoff_alt: "C’est le week-end. Vous n’êtes déjà plus là.",
   scratch_how_dayoff_alt: "restez sur le canapé",
-  scratch_how_paid_break: "prenez votre téléphone",
   scratch_prize_skip_meeting: "Une réunion en moins (à vous le compte rendu)",
   scratch_how_skip_meeting: "dites que vous avez un autre point",
   scratch_prize_last_snack: "Le dernier croissant de la réunion est à vous",
@@ -10,7 +9,6 @@ export default {
   scratch_prize_early_night: "Une soirée couché tôt (vous ne le ferez pas)",
   scratch_how_early_night: "posez le téléphone. oui, celui-ci",
   scratch_prize_early_night_alt: "Il est plus de 22 h. Votre lot : le lit.",
-  scratch_how_cat_cover: "laissez votre chaise au chat",
   scratch_prize_not_your_fault: "Aujourd’hui, un autre portera le chapeau",
   scratch_how_not_your_fault: "dites « je l’avais signalé par mail »",
   scratch_prize_lunch_hour: "Une vraie pause déj, sans manger devant l’écran",
@@ -24,7 +22,6 @@ export default {
   scratch_prize_monday_fuel: "Un deuxième café. Résultat non garanti.",
   scratch_how_monday_fuel: "tenez la tasse à deux mains",
   scratch_prize_monday_fuel_alt: "Lundi : un double. C’est encore vous qui payez.",
-  scratch_how_boss_lunch: "montrez-le à votre chef (à vos risques)",
   scratch_prize_squishy: "Un petit mochi tout mou. Il ne se défend pas.",
   scratch_how_squishy: "ouvrez squish.integ.life",
   scratch_prize_free_card: "Un autre ticket. Vraiment. Le prochain gagne.",

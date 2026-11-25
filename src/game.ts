@@ -7,7 +7,7 @@ import { type Stage, haptic, setupCanvas } from './engine/juice'
 import { type CardPose, type Layout, REGIONS, REST_ROT, computeLayout, toCard, toScreen } from './scratch/layout'
 import { type Brush, FOIL, type FoilFrame, Region, drawSheen, makeBrushes, makeFoilFrame, refreshComposite } from './scratch/foil'
 import { type CardSpec, type Perf, type Won, bakeCard, bakeShadow, cellCentre, makeCard, makePerf } from './scratch/print'
-import { type Draw, IDS, POOL, byId, pushRecent, rarity, rarityN } from './scratch/prizes'
+import { type Draw, POOL, byId, pushRecent, rarity, rarityN } from './scratch/prizes'
 import { fx, hasText, loadPrizeText } from './prizeText'
 import { type CoinSprite, type CoinState, bakeCoin, drawCoin } from './scratch/coin'
 import { CAP, Shavings } from './scratch/shavings'
@@ -61,14 +61,13 @@ const lsSet = (k: string, v: number | string) => {
 }
 function lsRecent(): string[] {
   try {
-    const a = JSON.parse(localStorage.getItem(LS_RECENT) || '[]')
-    return Array.isArray(a) ? (a as string[]) : []
+    return ([] as string[]).concat(JSON.parse(localStorage.getItem(LS_RECENT) || '[]'))
   } catch {
     return []
   }
 }
 /** a gift card's claim line (1 to 4), fixed by its text so the same card always shows the same line */
-const giftLine = (text: string) => 1 + ((text.length * 7 + text.charCodeAt(0) + text.charCodeAt(text.length - 1)) % 4)
+const giftLine = (text: string) => 1 + ((text.length + text.charCodeAt(0)) % 4)
 
 export interface GameApi {
   next(): void
@@ -80,7 +79,7 @@ export interface GameApi {
 export type Reveal = {
   /** the link's prize, 1-based (0: not a gift) */
   gift: number
-  /** a built-in win, 1-based in the pool (scratch/prizes.ts IDS), 0 for none */
+  /** a built-in win, 1-based in the pool (scratch/prizes.ts POOL), 0 for none */
   prize: number
   /** 1: the timed line */
   v: number
@@ -536,7 +535,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       if (won)
         revealed = {
           gift: c.spec.gift ? c.spec.index + 1 : 0,
-          prize: pz ? IDS.indexOf(pz.id) + 1 : 0,
+          prize: POOL.indexOf(pz!) + 1,
           v: c.spec.v,
           r: pz ? rarityN(pz) : 0,
           gl: c.spec.gift ? giftLine(c.spec.prizeText) : 0,

@@ -2,7 +2,6 @@
 export default {
   scratch_prize_dayoff_alt: "It's the weekend. You already left.",
   scratch_how_dayoff_alt: "stay on the sofa",
-  scratch_how_paid_break: "take your phone",
   scratch_prize_skip_meeting: "Skip one meeting (you write the minutes)",
   scratch_how_skip_meeting: "decline the invite, then apologise",
   scratch_prize_last_snack: "The last donut in the break room is yours",
@@ -10,7 +9,6 @@ export default {
   scratch_prize_early_night: "One early night (you won't take it)",
   scratch_how_early_night: "put the phone down. yes, this one",
   scratch_prize_early_night_alt: "It's past ten. Your prize is bed.",
-  scratch_how_cat_cover: "brief the cat, then leave",
   scratch_prize_not_your_fault: "Today, the blame lands on someone else",
   scratch_how_not_your_fault: "say “per my last email”",
   scratch_prize_lunch_hour: "A full lunch hour, away from your desk",
@@ -24,7 +22,6 @@ export default {
   scratch_prize_monday_fuel: "One refill. Results not guaranteed.",
   scratch_how_monday_fuel: "hold the mug with both hands",
   scratch_prize_monday_fuel_alt: "Monday: make it a double. Still on you.",
-  scratch_how_boss_lunch: "show this to your boss (at your own risk)",
   scratch_prize_squishy: "One squishy bun. It won't fight back.",
   scratch_how_squishy: "open squish.integ.life",
   scratch_prize_free_card: "One more card. Really. The next one wins.",
