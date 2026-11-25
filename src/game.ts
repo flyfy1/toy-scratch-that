@@ -54,7 +54,11 @@ const lsSet = (k: string, v: number) => {
 export interface GameApi {
   next(): void
   dispose(): void
+  /** a gift ticket with the silver intact (the sender's card): the prize is under the foil, not shown */
+  ticket(text: string): HTMLCanvasElement
 }
+/** the built-in prizes in the order the share card numbers them (cards.ts PRIZES) */
+const PRIZES = ['slack', 'coffee', 'nap', 'cat', 'merit', 'dayoff']
 export interface GameEvents {
   onFirst(): void
   /** lifetime cards finished, lifetime wins */
@@ -62,6 +66,11 @@ export interface GameEvents {
   onToast(text: string, link?: string): void
   /** the card on the table is done (prize known): show "Another one" */
   onSettled(done: boolean): void
+  /**
+   * A prize came out from under the silver: `gift` is the link's prize (1-based, 0 when not a gift),
+   * `prize` a built-in win (1-based in PRIZES, 0 for none). `snap` is the ticket on the felt, as it is.
+   */
+  onReveal?(r: { gift: number; prize: number }, snap: HTMLCanvasElement | null): void
 }
 
 interface Ptr {
@@ -447,6 +456,8 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       lsSet(LS_WINS, lifeWins)
       ev.onCounts(lifeCards, lifeWins)
       track('prize_revealed', { n: sessionCards, prize: c.spec.prizeId })
+      // the card's picture waits for the coin to leave the ticket (see draw)
+      if (won) revealed = { gift: c.spec.gift ? c.spec.index + 1 : 0, prize: PRIZES.indexOf(c.spec.prizeId) + 1 }
       const link = c.spec.prizeId === 'cat' ? 'https://purr.integ.life/' : c.spec.prizeId === 'merit' ? 'https://knock.integ.life/' : undefined
       const text = c.spec.prizeText
       window.setTimeout(() => {
@@ -468,6 +479,20 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       ev.onToast(t('scratch_spotless'))
       track('spotless', { n: spotlessN })
     }
+  }
+
+  let revealed: { gift: number; prize: number } | null = null
+  /** The ticket on the felt, about 4:3 so the share card's picture window shows it whole. */
+  function cropCard(): HTMLCanvasElement | null {
+    const { dpr, w: cw, h: ch } = stage
+    const h = Math.min(ch, L.CH * 1.14)
+    const w = Math.min(cw, h * 1.32)
+    const x = Math.max(0, Math.min(cw - w, L.cx - w / 2))
+    const y = Math.max(0, Math.min(ch - h, L.cy - h / 2))
+    const k = Math.min(dpr, 1000 / w)
+    const out = makeCanvas(w * k, h * k)
+    ctx2d(out).drawImage(canvas, x * dpr, y * dpr, w * dpr, h * dpr, 0, 0, out.width, out.height)
+    return out
   }
 
   function next() {
@@ -634,6 +659,10 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     shav.draw(ctx)
     for (const p of fading) drawCoin(ctx, coinSp, p.coin, L.U)
     for (const p of ptrs.values()) drawCoin(ctx, coinSp, p.coin, L.U)
+    if (revealed && !ptrs.size && !fading.length) {
+      ev.onReveal?.(revealed, cropCard())
+      revealed = null
+    }
     if (pendingDown != null) {
       inputLag.push(performance.now() - pendingDown)
       if (inputLag.length > 60) inputLag.shift()
@@ -829,6 +858,15 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
 
   const api: GameApi = {
     next,
+    ticket(text: string) {
+      const spec = makeCard(SEED, 0, lifeCards + 1, text, 0, false)
+      const regions = REGIONS.map((d, i) => new Region(d, L.K, L.dpr, SEED * 101 + i, word))
+      const paper = bakeCard(spec, makePerf(SEED), L.K)
+      const comp = makeCanvas(paper.width, paper.height)
+      ctx2d(comp).drawImage(paper, 0, 0)
+      refreshComposite(comp, paper, regions, makeFoilFrame(regions), L.dpr)
+      return comp
+    },
     dispose() {
       cancelAnimationFrame(raf)
       document.removeEventListener('visibilitychange', onVis)

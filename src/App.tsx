@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { MoreMenu, pillClass } from './components/MoreMenu'
 import { applyMeta, locale, t } from './i18n'
 import { startAnalytics, track } from './analytics'
-import { parseWords, stats, syncWordsToUrl, trackLanding, wordsFromUrl } from './share'
+import { landing, live, openSheet, parseWords, sharePeak, stats, trackLanding } from './share'
+import { MAX_GIFT, giftFromUrl, syncGiftToUrl } from './gift'
 import { Hint } from './components/Hint'
 import { startGame, type GameApi } from './game'
 
-const MAX_GIFT = 24
 const fmt = new Intl.NumberFormat(locale)
 
 function countLabel(n: number, k: number) {
@@ -31,9 +31,14 @@ export default function App() {
   const urlTimer = useRef<number | undefined>(undefined)
   const gaTimer = useRef<number | undefined>(undefined)
   const toastTimer = useRef<number | undefined>(undefined)
-  const [initial] = useState(() => wordsFromUrl(MAX_GIFT))
+  const [initial] = useState(() => giftFromUrl())
   const [text, setText] = useState(() => initial.join(', '))
-  const [typed, setTyped] = useState(false)
+  // a recipient sees no prize text until it is scratched out: the box shows only the prizes revealed so far
+  const [shown, setShown] = useState(() => (landing.recipient ? 0 : initial.length))
+  const veiled = shown < initial.length
+  // a recipient answering: the box opens empty, with its own placeholder; done typing, the sheet comes back
+  const box = useRef<HTMLInputElement>(null)
+  const [ph, setPh] = useState('')
   const [touched, setTouched] = useState(false)
   const [counts, setCounts] = useState({ cards: 0, wins: 0 })
   const [toast, setToast] = useState<{ text: string; link?: string; id: number } | null>(null)
@@ -45,6 +50,8 @@ export default function App() {
     startAnalytics('scratch')
     stats.words = initial
     trackLanding({ words: initial.length })
+    const base = document.title
+    if (shown < initial.length) document.title = t('scratch_title_gift')
     const g = startGame(
       ref.current!,
       {
@@ -65,10 +72,20 @@ export default function App() {
         onSettled(d) {
           setDone(d)
         },
+        onReveal(r, snap) {
+          if (r.gift) {
+            setShown((v) => {
+              if (Math.max(v, r.gift) >= initial.length) document.title = base
+              return Math.max(v, r.gift)
+            })
+          }
+          sharePeak('scratch', { snap, data: r })
+        },
       },
       initial,
     )
     api.current = g
+    live.ticket = () => (stats.words?.length ? g.ticket(stats.words[0]) : null)
     const onResize = () => setPillY(nextTop())
     window.addEventListener('resize', onResize)
     return () => {
@@ -79,26 +96,44 @@ export default function App() {
 
   const onText = (value: string) => {
     setText(value)
-    setTyped(true)
     const words = parseWords(value, MAX_GIFT)
     stats.words = words
     window.clearTimeout(urlTimer.current)
-    urlTimer.current = window.setTimeout(() => syncWordsToUrl(words), 300)
+    urlTimer.current = window.setTimeout(() => syncGiftToUrl(words), 300)
     // GA gets the number of lines only, never the text
     window.clearTimeout(gaTimer.current)
     if (words.length) gaTimer.current = window.setTimeout(() => track('gift_written', { count: words.length }), 2000)
   }
 
+  live.reply = () => {
+    onText('')
+    setPh(t('scratch_reply_ph'))
+    box.current?.focus()
+  }
+  /** Done writing a prize: the link carries it now, so the gift ticket is offered as the slip (the answer: the sheet). */
+  const written = () => {
+    const words = parseWords(text, MAX_GIFT)
+    if (veiled || !words.length) return
+    window.clearTimeout(urlTimer.current)
+    syncGiftToUrl(words)
+    if (ph) {
+      setPh('')
+      openSheet('reply')
+    } else sharePeak('scratch', { snap: null, data: {} })
+  }
+
   const pill = pillClass('scratch')
-  const words = parseWords(text, MAX_GIFT)
 
   return (
     <>
       <canvas ref={ref} />
       <input
-        value={text}
+        ref={box}
+        value={veiled ? initial.slice(0, shown).join(', ') : text}
+        readOnly={veiled}
         maxLength={300}
-        placeholder={t('scratch_placeholder')}
+        placeholder={veiled ? t('scratch_hidden') : ph || t('scratch_placeholder')}
+        onBlur={written}
         enterKeyHint="done"
         onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => onText(e.target.value)}
@@ -106,16 +141,10 @@ export default function App() {
         className="fixed left-1/2 top-3 z-20 w-80 max-w-[86vw] -translate-x-1/2 rounded-full border border-white/20 bg-black/20 px-4 py-1.5 text-center text-base text-white placeholder-white/45 outline-none backdrop-blur-md focus:border-white/40 focus:bg-black/30"
       />
       <div className="pointer-events-none fixed inset-x-0 top-[3.4rem] z-10 flex flex-col items-center gap-1.5 select-none px-4 text-center">
-        {typed && words.length > 0 ? (
-          <div className="text-[13px] leading-snug text-white/70" style={{ textShadow: '0 1px 4px rgba(0,0,0,.6)' }}>
-            {t('scratch_link_note')}
+        {counts.cards > 0 && (
+          <div className="rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[13px] tabular-nums text-white/75 backdrop-blur-md">
+            {countLabel(counts.cards, counts.wins)}
           </div>
-        ) : (
-          counts.cards > 0 && (
-            <div className="rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[13px] tabular-nums text-white/75 backdrop-blur-md">
-              {countLabel(counts.cards, counts.wins)}
-            </div>
-          )
         )}
       </div>
       {toast && (

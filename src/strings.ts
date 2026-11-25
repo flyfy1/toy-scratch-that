@@ -2,6 +2,9 @@
 // The text every toy shares (names for the More menu, Share, About) lives in i18n.ts.
 
 const en = {
+  scratch_hidden: "Someone left you a prize",
+  scratch_reply_ph: "Write a prize for them",
+  scratch_title_gift: "Someone left you a scratch card",
   desc_scratch: "A paper scratch card and a coin. Rub the silver off in ragged streaks, push the shavings around, and find out what you won: usually five paid minutes of staring at the wall. No money, no sign-up, and you can write a card for a friend.",
   hint_scratch: "Rub the silver",
   share_scratch: "A scratch card, a coin, and a small office-life prize. Scratch one:",
@@ -35,7 +38,6 @@ const en = {
   scratch_spotless: "Spotless. Nobody asked.",
   scratch_next: "Another one",
   scratch_placeholder: "Write a prize for a friend",
-  scratch_link_note: "Your link now carries this prize. Share it.",
   scratch_count: "{n} cards · {k} wins",
   scratch_count_n1: "1 card · {k} wins",
   scratch_count_k1: "{n} cards · 1 win",
@@ -43,6 +45,9 @@ const en = {
 }
 
 const zhCN: typeof en = {
+  scratch_hidden: "有人给你留了奖品",
+  scratch_reply_ph: "写一个给 TA 的奖品",
+  scratch_title_gift: "有人给你留了一张刮刮卡",
   desc_scratch: "一张纸质刮刮卡，一枚硬币。把银色涂层一道道刮下来，碎屑可以用手指推开，看看中了什么：多半是带薪发呆 5 分钟。不涉及钱，不用注册，还能给朋友做一张。",
   hint_scratch: "用手指刮开银色涂层",
   share_scratch: "一张刮刮卡，一枚硬币，奖品是打工人的小确幸。刮一张：",
@@ -76,7 +81,6 @@ const zhCN: typeof en = {
   scratch_spotless: "刮得真干净。没人要求。",
   scratch_next: "再来一张",
   scratch_placeholder: "给朋友写个奖品",
-  scratch_link_note: "链接里已经带上这个奖品，分享出去吧。",
   scratch_count: "刮了 {n} 张 · 中 {k} 张",
   scratch_count_n1: "刮了 1 张 · 中 {k} 张",
   scratch_count_k1: "刮了 {n} 张 · 中 1 张",
@@ -84,6 +88,9 @@ const zhCN: typeof en = {
 }
 
 const es: typeof en = {
+  scratch_hidden: "Alguien te ha dejado un premio",
+  scratch_reply_ph: "Escribe un premio para esa persona",
+  scratch_title_gift: "Alguien te ha dejado un rasca",
   desc_scratch: "Un rasca y gana de papel y una moneda. Quita la capa plateada a tiras, aparta las virutas con el dedo y mira qué te ha tocado: casi siempre cinco minutos pagados mirando la pared. Sin dinero, sin registro, y puedes preparar uno para alguien.",
   hint_scratch: "Rasca la capa plateada",
   share_scratch: "Un cartón, una moneda y un premio de oficina. Rasca uno:",
@@ -117,7 +124,6 @@ const es: typeof en = {
   scratch_spotless: "Impecable. Nadie lo pidió.",
   scratch_next: "Otro",
   scratch_placeholder: "Escribe un premio para alguien",
-  scratch_link_note: "Tu enlace ya lleva este premio. Compártelo.",
   scratch_count: "{n} cartones · {k} premios",
   scratch_count_n1: "1 cartón · {k} premios",
   scratch_count_k1: "{n} cartones · 1 premio",
@@ -125,6 +131,9 @@ const es: typeof en = {
 }
 
 const fr: typeof en = {
+  scratch_hidden: "Quelqu’un vous a laissé un lot",
+  scratch_reply_ph: "Écrivez-lui un lot",
+  scratch_title_gift: "Quelqu’un vous a laissé un ticket à gratter",
   desc_scratch: "Un ticket à gratter en papier et une pièce. Grattez la pellicule argentée par bandes, poussez les copeaux du doigt et découvrez votre lot : souvent cinq minutes payées à fixer le mur. Pas d’argent, pas d’inscription, et vous pouvez en préparer un pour un ami.",
   hint_scratch: "Grattez la partie argentée",
   share_scratch: "Un ticket, une pièce et un petit lot de bureau. Grattez-en un :",
@@ -158,7 +167,6 @@ const fr: typeof en = {
   scratch_spotless: "Impeccable. Personne n’avait demandé.",
   scratch_next: "Un autre",
   scratch_placeholder: "Écrivez un lot pour un ami",
-  scratch_link_note: "Votre lien contient maintenant ce lot. Partagez-le.",
   scratch_count: "{n} tickets · {k} gagnés",
   scratch_count_n1: "1 ticket · {k} gagnés",
   scratch_count_k1: "{n} tickets · 1 gagné",
@@ -166,6 +174,9 @@ const fr: typeof en = {
 }
 
 const ja: typeof en = {
+  scratch_hidden: "あなたに賞品が届いています",
+  scratch_reply_ph: "相手への賞品を書く",
+  scratch_title_gift: "スクラッチが一枚届いています",
   desc_scratch: "紙のスクラッチカードとコイン1枚。銀色をガリガリけずり、けずりカスを指で払って、当たりを確かめる。たいていは「有給でぼーっとする5分」。お金は関係なし、登録不要。友だち用のカードも作れます。",
   hint_scratch: "銀色のところをこする",
   share_scratch: "スクラッチカードとコイン。賞品は会社員のささやかな救い。1枚どうぞ：",
@@ -199,7 +210,6 @@ const ja: typeof en = {
   scratch_spotless: "きれいに削りましたね。誰も頼んでいません。",
   scratch_next: "もう1枚",
   scratch_placeholder: "友だちへの賞品を書く",
-  scratch_link_note: "リンクにこの賞品が入りました。送ってみて。",
   scratch_count: "{n} 枚 · 当たり {k}",
   scratch_count_n1: "1 枚 · 当たり {k}",
   scratch_count_k1: "{n} 枚 · 当たり 1",
