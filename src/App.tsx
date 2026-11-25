@@ -6,6 +6,7 @@ import { landing, live, openSheet, parseWords, sharePeak, stats, trackLanding } 
 import { MAX_GIFT, giftFromUrl, syncGiftToUrl } from './gift'
 import { Hint } from './components/Hint'
 import { startGame, type GameApi } from './game'
+import { loadPrizeText } from './prizeText'
 
 const fmt = new Intl.NumberFormat(locale)
 
@@ -81,7 +82,8 @@ export default function App() {
               return Math.max(v, r.gift)
             })
           }
-          sharePeak('scratch', { snap, data: r })
+          // the claim lines come with the prize pool's file (long here by now); the card waits for it
+          void loadPrizeText().then(() => sharePeak('scratch', { snap, data: r }))
         },
       },
       initial,

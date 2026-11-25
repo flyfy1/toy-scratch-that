@@ -1,7 +1,9 @@
 // The card: what is printed on it (spec 3.4), its paper, its perforated top edge, its shadow.
-import { locale, t } from '../i18n'
+import { locale, t, tx } from '../i18n'
 import { CARD_H_U, CARD_W_U } from './layout'
-import { PRIZE_OF, SYMBOLS, type SymbolId, drawSymbol } from './symbols'
+import type { Prize } from './prizes'
+import { fx } from '../prizeText'
+import { SYMBOLS, type SymbolId, drawSymbol } from './symbols'
 import { DEG, FONT_MONO, FONT_SANS, type Rng, ctx2d, makeCanvas, rng, roundRectPath, rr, ri } from './util'
 
 export type CardKind = 'win' | 'near' | 'thanks' | 'gift'
@@ -15,6 +17,9 @@ export interface CardSpec {
   winCells: number[]
   prizeId: string
   prizeText: string
+  /** a built-in win's prize (from the pool) and whether its timed line is printed */
+  prize?: Prize
+  v: 0 | 1
   serial: number
   gift: boolean
   /** the forbidden strip's hidden line (the third time in a session it changes) */
@@ -38,12 +43,22 @@ function shuffle<T>(r: Rng, a: T[]): T[] {
   return a
 }
 
-/** Spec 5: card 1 wins, card 2 is a near miss, then 35 / 40 / 25. */
-export function makeCard(seed: number, index: number, serial: number, giftText?: string, ord = index, voidAgain = false): CardSpec {
+/** A built-in win, drawn by the game (once per card: a rebuilt card keeps it). */
+export interface Won {
+  prize: Prize
+  v: 0 | 1
+  text: string
+}
+
+/**
+ * Spec 5: card 1 wins, card 2 is a near miss, then 35 / 40 / 25. `win.force`: the card a free_card guaranteed.
+ * On a win the prize is drawn first (`win.pick`) and the matching symbol follows it.
+ */
+export function makeCard(seed: number, index: number, serial: number, giftText?: string, ord = index, voidAgain = false, win?: { force: boolean; pick: () => Won }): CardSpec {
   const r = rng(seed * 7919 + index * 104729 + 13)
   let kind: CardKind
   if (giftText) kind = 'gift'
-  else if (ord === 0) kind = 'win'
+  else if (ord === 0 || win?.force) kind = 'win'
   else if (ord === 1) kind = 'near'
   else {
     const x = r()
@@ -51,7 +66,9 @@ export function makeCard(seed: number, index: number, serial: number, giftText?:
   }
   const grid: SymbolId[] = new Array(9)
   const order = shuffle(r, [0, 1, 2, 3, 4, 5, 6, 7, 8])
-  const syms = shuffle(r, SYMBOLS.slice())
+  let syms = shuffle(r, SYMBOLS.slice())
+  const won = kind === 'win' ? win?.pick() : undefined
+  if (won) syms = [won.prize.sym, ...syms.filter((s) => s !== won.prize.sym)]
   let winCells: number[] = []
   if (kind === 'win' || kind === 'gift') {
     const w = syms[0]
@@ -83,16 +100,13 @@ export function makeCard(seed: number, index: number, serial: number, giftText?:
       }
     }
   }
-  const prizeId = kind === 'win' ? PRIZE_OF[grid[winCells[0]]] : kind === 'gift' ? 'gift' : kind
+  // a win without a drawn prize (the gift ticket's preview never is one) falls back to the symbol's first prize
+  const prizeId = kind === 'win' ? (won?.prize.id ?? 'slack') : kind === 'gift' ? 'gift' : kind
   const prizeText =
-    kind === 'gift'
-      ? giftText!
-      : kind === 'win'
-        ? t(`scratch_prize_${prizeId}` as Parameters<typeof t>[0])
-        : kind === 'near'
-          ? t('scratch_near')
-          : t('scratch_thanks')
-  return { index, seed, kind, grid, winCells, prizeId, prizeText, serial, gift: kind === 'gift', voidText: t(voidAgain ? 'scratch_void_again' : 'scratch_void_reveal') }
+    kind === 'gift' ? giftText! : kind === 'win' ? (won?.text ?? t('scratch_prize_slack')) : kind === 'near' ? t('scratch_near') : t('scratch_thanks')
+  // void_pass: on this card the forbidden strip gives in
+  const voidText = (won?.prize.fx === 'void_pass' && tx('scratch_void_pass')) || t(voidAgain ? 'scratch_void_again' : 'scratch_void_reveal')
+  return { index, seed, kind, grid, winCells, prizeId, prizeText, prize: won?.prize, v: won?.v ?? 0, serial, gift: kind === 'gift', voidText }
 }
 
 // ---------- shape ----------
@@ -470,14 +484,19 @@ function underPrize(g: CanvasRenderingContext2D, card: CardSpec, px: number) {
   const y0 = 19.4
   const w = 17
   const h = 2.6
+  // the jackpot is printed on gold (its code comes with the prize pool's text)
+  const gold = card.prize?.fx === 'jackpot' ? fx.pool : undefined
   g.save()
-  g.beginPath()
-  roundRectPath(g, x0, y0, w, h, 0.25)
-  g.fillStyle = '#F4EBD6'
-  g.fill()
-  g.strokeStyle = '#D8CDB6'
-  g.lineWidth = px * 1.5
-  g.stroke()
+  if (gold) gold.goldBox(g, x0, y0, w, h, px)
+  else {
+    g.beginPath()
+    roundRectPath(g, x0, y0, w, h, 0.25)
+    g.fillStyle = '#F4EBD6'
+    g.fill()
+    g.strokeStyle = '#D8CDB6'
+    g.lineWidth = px * 1.5
+    g.stroke()
+  }
   g.fillStyle = card.kind === 'win' || card.kind === 'gift' ? '#2B2420' : '#5A5045'
   g.textAlign = 'center'
   g.textBaseline = 'middle'

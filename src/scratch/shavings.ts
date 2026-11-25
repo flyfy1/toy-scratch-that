@@ -20,6 +20,8 @@ export interface Shaving {
   where: number
   overT: number
   dead: boolean
+  /** from the jackpot's gold prize box */
+  gold?: boolean
 }
 
 export const CAP = 260
@@ -27,6 +29,7 @@ export const CAP = 260
 const COL_BODY = '#8E949D'
 const COL_LIGHT = '#DADEE4'
 const COL_SHADOW = 'rgba(0,0,0,0.25)'
+const COL_GOLD = '#C9A13E'
 
 /** A small curl: a tapered, crumpled ribbon (radius 2 to 3.5 px). */
 function curlPoly(r: Rng): number[] {
@@ -89,7 +92,7 @@ export class Shavings {
 
   constructor(private r: Rng) {}
 
-  spawn(x: number, y: number, pvx: number, pvy: number, t: number, small = false) {
+  spawn(x: number, y: number, pvx: number, pvy: number, t: number, small = false, gold = false) {
     const r = this.r
     const sp = Math.hypot(pvx, pvy)
     const nx = sp > 1 ? -pvy / sp : Math.cos(r() * 6.28)
@@ -111,6 +114,7 @@ export class Shavings {
       where: 1,
       overT: 0,
       dead: false,
+      gold,
     }
     this.list.push(s)
     return s
@@ -226,6 +230,11 @@ export class Shavings {
         for (const s of sel) this.path(g, s, s.x + ox, s.y + oy, 0)
         g.fill()
       }
+      // the jackpot's: the body again, in gold
+      g.fillStyle = COL_GOLD
+      g.beginPath()
+      for (const s of sel) if (s.gold) this.path(g, s, s.x, s.y, 0)
+      g.fill()
     }
     g.restore()
   }
@@ -237,7 +246,7 @@ export class Shavings {
       [-0.6, -0.7, COL_LIGHT],
       [0, 0, COL_BODY],
     ] as const) {
-      g.fillStyle = col
+      g.fillStyle = s.gold && !ox ? COL_GOLD : col
       g.beginPath()
       this.path(g, s, x + ox, y + oy, rot)
       g.fill()

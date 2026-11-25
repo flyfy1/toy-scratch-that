@@ -1,12 +1,14 @@
 // Scratch That / 刮一张: a paper scratch card on a felt counter, scraped with a brass token.
 // Cozy rules: no shake / flash / hit-stop / additive particles. Springs, contact shadows, small sounds.
-import { t } from './i18n'
+import { t, tx } from './i18n'
 import { track } from './analytics'
 import { audio, type ScrapeVoice } from './engine/AudioEngine'
 import { type Stage, haptic, setupCanvas } from './engine/juice'
 import { type CardPose, type Layout, REGIONS, REST_ROT, computeLayout, toCard, toScreen } from './scratch/layout'
 import { type Brush, FOIL, type FoilFrame, Region, drawSheen, makeBrushes, makeFoilFrame, refreshComposite } from './scratch/foil'
-import { type CardSpec, type Perf, bakeCard, bakeShadow, cellCentre, makeCard, makePerf } from './scratch/print'
+import { type CardSpec, type Perf, type Won, bakeCard, bakeShadow, cellCentre, makeCard, makePerf } from './scratch/print'
+import { type Draw, IDS, POOL, byId, pushRecent, rarity, rarityN } from './scratch/prizes'
+import { fx, hasText, loadPrizeText } from './prizeText'
 import { type CoinSprite, type CoinState, bakeCoin, drawCoin } from './scratch/coin'
 import { CAP, Shavings } from './scratch/shavings'
 import { bakeFelt } from './scratch/felt'
@@ -16,6 +18,9 @@ const Q = new URLSearchParams(location.search)
 const DEV = import.meta.env.DEV
 const SEED = DEV && Q.has('seed') ? Number(Q.get('seed')) >>> 0 || 1 : (Math.random() * 1e9) >>> 0
 const OG = DEV && Q.get('og') === '1'
+// Dev only: ?prize=<id> deals that prize on every win, ?now=<ISO time> sets the clock for the timed lines
+const DEV_PRIZE = DEV ? byId(Q.get('prize') ?? '') : undefined
+const clock = () => (DEV && Q.has('now') ? new Date(Q.get('now')!) : new Date())
 
 // Dev only: ?seed=<n> also pins Math.random, so frame sheets repeat.
 if (DEV && Q.has('seed')) {
@@ -35,6 +40,10 @@ const ARRIVE_MS = 420
 const LEAVE_MS = 300
 const LS_CARDS = 'scratch.cards'
 const LS_WINS = 'scratch.wins'
+/** the last 8 built-in wins on this device (ids, newest last): no repeat among them */
+const LS_RECENT = 'scratch.recent'
+/** 1: a free_card was won and the next card is a guaranteed win (kept across visits until that card is revealed) */
+const LS_FREE = 'scratch.free'
 
 const lsGet = (k: string) => {
   try {
@@ -43,13 +52,23 @@ const lsGet = (k: string) => {
     return 0
   }
 }
-const lsSet = (k: string, v: number) => {
+const lsSet = (k: string, v: number | string) => {
   try {
     localStorage.setItem(k, String(v))
   } catch {
     /* private mode */
   }
 }
+function lsRecent(): string[] {
+  try {
+    const a = JSON.parse(localStorage.getItem(LS_RECENT) || '[]')
+    return Array.isArray(a) ? (a as string[]) : []
+  } catch {
+    return []
+  }
+}
+/** a gift card's claim line (1 to 4), fixed by its text so the same card always shows the same line */
+const giftLine = (text: string) => 1 + ((text.length * 7 + text.charCodeAt(0) + text.charCodeAt(text.length - 1)) % 4)
 
 export interface GameApi {
   next(): void
@@ -57,8 +76,19 @@ export interface GameApi {
   /** a gift ticket with the silver intact (the sender's card): the prize is under the foil, not shown */
   ticket(text: string): HTMLCanvasElement
 }
-/** the built-in prizes in the order the share card numbers them (cards.ts PRIZES) */
-const PRIZES = ['slack', 'coffee', 'nap', 'cat', 'merit', 'dayoff']
+/** What a reveal hands the share card (numbers only): see cards.ts scratchDoc. */
+export type Reveal = {
+  /** the link's prize, 1-based (0: not a gift) */
+  gift: number
+  /** a built-in win, 1-based in the pool (scratch/prizes.ts IDS), 0 for none */
+  prize: number
+  /** 1: the timed line */
+  v: number
+  /** 1 common or uncommon, 2 rare, 3 jackpot */
+  r: number
+  /** a gift card's claim line, 1 to 4 */
+  gl: number
+}
 export interface GameEvents {
   onFirst(): void
   /** lifetime cards finished, lifetime wins */
@@ -66,11 +96,8 @@ export interface GameEvents {
   onToast(text: string, link?: string): void
   /** the card on the table is done (prize known): show "Another one" */
   onSettled(done: boolean): void
-  /**
-   * A prize came out from under the silver: `gift` is the link's prize (1-based, 0 when not a gift),
-   * `prize` a built-in win (1-based in PRIZES, 0 for none). `snap` is the ticket on the felt, as it is.
-   */
-  onReveal?(r: { gift: number; prize: number }, snap: HTMLCanvasElement | null): void
+  /** A prize came out from under the silver. `snap` is the ticket on the felt, as it is. */
+  onReveal?(r: Reveal, snap: HTMLCanvasElement | null): void
 }
 
 interface Ptr {
@@ -118,6 +145,8 @@ interface CardState {
   prizeKnown: boolean
   voidDone: boolean
   spotless: boolean
+  /** the jackpot's stamp landed (time) */
+  jackpot: number | null
 }
 
 export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: string[] = []): GameApi {
@@ -147,6 +176,10 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
   // session + lifetime
   let lifeCards = lsGet(LS_CARDS)
   let lifeWins = lsGet(LS_WINS)
+  let recent = lsRecent()
+  /** each card's deal, made once (a rebuilt card keeps its prize): forced by a free_card, the prize drawn */
+  const deals = new Map<number, { force: boolean; won?: Won; shown?: boolean }>()
+  void loadPrizeText()
   let sessionCards = 0
   let forbiddenN = 0
   let spotlessN = 0
@@ -166,10 +199,37 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     return { ...l, CW, CH: 1.38 * CW, U, K: U * s.dpr, cx: 0.7 * s.w, cy: 0.5 * s.h }
   }
 
+  function dealWin(index: number, force: boolean): Won {
+    const pending = [...deals.entries()].filter(([i, d]) => i !== index && d.won && !d.shown).map(([, d]) => d.won!.prize.id)
+    const now = clock()
+    const r = rng(SEED * 31 + index * 977 + 5)
+    const pool = fx.pool
+    let d: Draw
+    if (DEV_PRIZE) d = { prize: DEV_PRIZE, v: pool?.timed(DEV_PRIZE.when, now) && hasText(`scratch_prize_${DEV_PRIZE.id}_alt`) ? 1 : 0 }
+    else if (pool) d = pool.drawPrize({ r, recent, pending, now, has: hasText, noFree: force })
+    else {
+      // before the pool's file is here (or if it never comes): the prizes in the main bundle (no meta prizes among
+      // them), first-win ones on a new device, none of the recent ones while another is left
+      const main = POOL.filter((p) => hasText(`scratch_prize_${p.id}`))
+      const left = main.filter((p) => (recent.length ? !recent.includes(p.id) : p.first))
+      const list = left.length ? left : main
+      d = { prize: list[Math.floor(r() * list.length)], v: 0 }
+    }
+    const key = `scratch_prize_${d.prize.id}`
+    return { ...d, text: (d.v && tx(key + '_alt')) || tx(key) || t('scratch_prize_slack') }
+  }
+
   function bake(index: number, arriveAt: number): CardState {
     const gift = index < gifts.length ? gifts[index] : undefined
     const ord = gift ? 0 : normalOrd
-    const spec = makeCard(SEED, index, lifeCards + 1, gift, ord, forbiddenN === 2)
+    let deal = deals.get(index)
+    if (!deal) {
+      deal = { force: !gift && lsGet(LS_FREE) === 1 }
+      deals.set(index, deal)
+    }
+    const dl = deal
+    const win = gift ? undefined : { force: dl.force, pick: () => (dl.won ??= dealWin(index, dl.force)) }
+    const spec = makeCard(SEED, index, lifeCards + 1, gift, ord, forbiddenN === 2, win)
     const perf = makePerf(SEED + index * 7)
     const regions = REGIONS.map((d, i) => new Region(d, L.K, L.dpr, SEED * 101 + index * 7 + i, word))
     const paper = bakeCard(spec, perf, L.K)
@@ -194,6 +254,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       prizeKnown: false,
       voidDone: false,
       spotless: false,
+      jackpot: null,
     }
   }
 
@@ -210,6 +271,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       card.prizeKnown = was.prizeKnown
       card.voidDone = was.voidDone
       card.spotless = was.spotless
+      card.jackpot = was.jackpot
     }
     old = null
   }
@@ -271,10 +333,13 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     const br = brushes[Math.floor(chipR() * brushes.length)]
     let fresh = 0
     let clean = 0
+    let gold = false
     for (const R of regionsNear(ux, uy)) {
       const res = R.stamp(br, ux, uy, ang, s, p.strokeId, tm, chipR)
       fresh += res.fresh
       clean += res.clean
+      // the jackpot's box is gold underneath: its shavings carry the gold
+      if (res.fresh && R.def.id === 'prize' && card.spec.prize?.fx === 'jackpot') gold = true
     }
     if (fresh && card.firstStamp == null) card.firstStamp = tm
     if (clean) p.resid = 1
@@ -284,7 +349,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       shav.carry += 0.17 * fresh
       while (shav.carry >= 1) {
         shav.carry -= 1
-        shav.spawn(sx, sy, p.vx, p.vy, tm)
+        shav.spawn(sx, sy, p.vx, p.vy, tm, false, gold)
       }
       shav.carryFlake += 0.05 * clean
       while (shav.carryFlake >= 1) {
@@ -455,10 +520,29 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       lsSet(LS_CARDS, lifeCards)
       lsSet(LS_WINS, lifeWins)
       ev.onCounts(lifeCards, lifeWins)
-      track('prize_revealed', { n: sessionCards, prize: c.spec.prizeId })
+      const pz = c.spec.prize
+      const deal = deals.get(c.spec.index)
+      if (deal) deal.shown = true
+      // the guaranteed card is out: the guarantee is used up (a new free_card sets it again)
+      if (deal?.force) lsSet(LS_FREE, 0)
+      if (pz) {
+        recent = pushRecent(recent, pz.id)
+        lsSet(LS_RECENT, JSON.stringify(recent))
+        if (pz.fx === 'free_card') lsSet(LS_FREE, 1)
+      }
+      // GA: the prize id (an enum) and its rarity; never any prize text
+      track('prize_revealed', { n: sessionCards, prize: c.spec.prizeId, ...(pz && { rarity: rarity(pz), variant: c.spec.v }) })
       // the card's picture waits for the coin to leave the ticket (see draw)
-      if (won) revealed = { gift: c.spec.gift ? c.spec.index + 1 : 0, prize: PRIZES.indexOf(c.spec.prizeId) + 1 }
-      const link = c.spec.prizeId === 'cat' ? 'https://purr.integ.life/' : c.spec.prizeId === 'merit' ? 'https://knock.integ.life/' : undefined
+      if (won)
+        revealed = {
+          gift: c.spec.gift ? c.spec.index + 1 : 0,
+          prize: pz ? IDS.indexOf(pz.id) + 1 : 0,
+          v: c.spec.v,
+          r: pz ? rarityN(pz) : 0,
+          gl: c.spec.gift ? giftLine(c.spec.prizeText) : 0,
+        }
+      if (pz?.fx === 'jackpot') jackpot(c, tm)
+      const link = pz?.link ? `https://${pz.link}.integ.life/` : undefined
       const text = c.spec.prizeText
       window.setTimeout(() => {
         if (card === c) ev.onToast(text, link)
@@ -481,7 +565,14 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     }
   }
 
-  let revealed: { gift: number; prize: number } | null = null
+  /** The jackpot: the stamp lands on the gold box, one burst of gold shavings, three knocks rising, one long buzz. */
+  function jackpot(c: CardState, tm: number) {
+    c.jackpot = tm
+    const pc = cardPose(tm)
+    fx.pool?.burst((ux, uy, vx, vy, small) => shav.spawn(...toScreen(L, pc, ux, uy), vx, vy, tm, small, true), SEED * 17 + c.spec.index)
+  }
+
+  let revealed: Reveal | null = null
   /** The ticket on the felt, about 4:3 so the share card's picture window shows it whole. */
   function cropCard(): HTMLCanvasElement | null {
     const { dpr, w: cw, h: ch } = stage
@@ -642,6 +733,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     })
     if (c.circles) drawCircles(ctx, c, tm)
     if (c.stamp != null) drawNearStamp(ctx, c, tm)
+    if (c.jackpot != null) fx.pool?.drawStamp(ctx, L.K, SEED, clamp((tm - c.jackpot) / 110, 0, 1))
     ctx.restore()
   }
 
@@ -1071,13 +1163,23 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
       },
       shotReady: false,
     }
-    if (shot && shots[shot]) {
+    const play = () => {
+      if (!shot || !shots[shot]) return
       frozen = performance.now()
       step(0.6)
       shots[shot]()
       draw(now())
       ;(window as unknown as { __toy: { shotReady: boolean } }).__toy.shotReady = true
     }
+    // ?prize=: card 1 was dealt before the prize file came; deal it again once the text is there
+    if (DEV_PRIZE)
+      void loadPrizeText().then(() => {
+        deals.clear()
+        card = bake(cardIndex, card.arriveT0)
+        play()
+      })
+    else play()
+    ;(window as unknown as Record<string, unknown>).__prizes = { recent: () => recent, deals: () => [...deals.entries()] }
   }
   return api
 }
