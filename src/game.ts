@@ -803,8 +803,17 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
   const ric = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback
   if (ric) ric(() => audio.prepare())
   else window.setTimeout(() => audio.prepare(), 600)
+  // session summary: sent when the page is hidden (before gtag flushes on pagehide), once per new card count
+  let sentCards = 0
+  const sendSession = () => {
+    if (sessionCards > sentCards) {
+      sentCards = sessionCards
+      track('session_cards', { n: sessionCards, secs: Math.round(scrapeMs / 1000) })
+    }
+  }
   const onVis = () => {
     if (document.hidden) {
+      sendSession()
       cancelAnimationFrame(raf)
       for (const id of [...ptrs.keys()]) up(id)
       audio.suspend()
@@ -814,9 +823,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     }
   }
   document.addEventListener('visibilitychange', onVis)
-  const onHide = () => {
-    if (sessionCards > 0) track('session_cards', { n: sessionCards, secs: Math.round(scrapeMs / 1000) })
-  }
+  const onHide = () => sendSession()
   window.addEventListener('pagehide', onHide)
   ev.onCounts(lifeCards, lifeWins)
 
