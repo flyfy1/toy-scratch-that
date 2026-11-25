@@ -108,6 +108,10 @@ export class Region {
   readonly mask: HTMLCanvasElement
   readonly resTex: HTMLCanvasElement
   readonly resMask: HTMLCanvasElement
+  /** tex cut by mask, kept up to date inside dirty rects (the sheen is laid over it per frame) */
+  readonly foil: HTMLCanvasElement
+  /** region px rects touched since the last card refresh (kept apart, so two fingers far apart stay cheap) */
+  dirty: [number, number, number, number][] = []
   readonly cols: number
   readonly rows: number
   readonly state: Uint8Array
@@ -115,6 +119,10 @@ export class Region {
   readonly t0: Float64Array
   marked = 0
   cleaned = 0
+  /** main panel: which of the 9 printed cells each grid cell sits in, and how many are marked */
+  symCell: Int8Array | null = null
+  symMarked = new Int16Array(9)
+  symTotal = new Int16Array(9)
   get total() {
     return this.state.length
   }
@@ -133,6 +141,17 @@ export class Region {
     this.state = new Uint8Array(n)
     this.sid = new Int32Array(n)
     this.t0 = new Float64Array(n)
+    if (def.id === 'main') {
+      this.symCell = new Int8Array(n)
+      for (let row = 0; row < this.rows; row++)
+        for (let col = 0; col < this.cols; col++) {
+          const ux = (col + 0.5) * CELL
+          const uy = (row + 0.5) * CELL
+          const k = Math.min(2, Math.floor(ux / (def.w / 3))) + 3 * Math.min(2, Math.floor(uy / (def.h / 3)))
+          this.symCell[row * this.cols + col] = k
+          this.symTotal[k]++
+        }
+    }
     const r = rng(seed)
     const { tex, pix } = this.bakeTex(r, dpr, word)
     this.tex = tex
@@ -147,6 +166,8 @@ export class Region {
     const rm = ctx2d(this.resMask)
     rm.fillStyle = '#000'
     rm.fillRect(0, 0, this.wpx, this.hpx)
+    this.foil = makeCanvas(this.wpx, this.hpx)
+    this.dirty = [[0, 0, this.wpx, this.hpx]]
   }
 
   private bakeTex(r: Rng, dpr: number, word: string) {
@@ -158,11 +179,10 @@ export class Region {
     roundRectPath(g, 0, 0, W, H, 0.25 * K)
     g.clip()
     const lg = cssAngleGradient(g, 0, 0, W, H, 100)
-    lg.addColorStop(0, '#B9BEC7')
-    lg.addColorStop(0.3, '#D9DDE3')
-    lg.addColorStop(0.55, '#AEB4BE')
-    lg.addColorStop(0.8, '#CDD2D9')
-    lg.addColorStop(1, '#A3A9B4')
+    // lead review: no fixed bright stripe in the base, so the moving sheen is the only band
+    lg.addColorStop(0, '#C3C8D0')
+    lg.addColorStop(0.5, '#BCC1CA')
+    lg.addColorStop(1, '#AEB4BE')
     g.fillStyle = lg
     g.fillRect(0, 0, W, H)
     // grain, +-6 in value from a 128 px tile
@@ -366,6 +386,7 @@ export class Region {
           this.sid[i] = strokeId
           this.t0[i] = t
           this.marked++
+          if (this.symCell) this.symMarked[this.symCell[i]]++
           fresh++
         } else if (st === SCRAPED && (this.sid[i] !== strokeId || t - this.t0[i] > SECOND_PASS_MS)) {
           this.state[i] = CLEAN
@@ -405,9 +426,25 @@ export class Region {
       }
       g.restore()
     }
+    const ext = (Math.max(br.w, br.h) / 2) * s + 0.4 * K
+    this.mark(lx - ext, ly - ext, lx + ext, ly + ext)
     cut(this.mask, true)
     if (clean > 0) cut(this.resMask, false)
     return { fresh, clean }
+  }
+
+  mark(x0: number, y0: number, x1: number, y1: number) {
+    const pad = 8
+    for (const d of this.dirty) {
+      if (x0 <= d[2] + pad && x1 >= d[0] - pad && y0 <= d[3] + pad && y1 >= d[1] - pad) {
+        d[0] = Math.min(d[0], x0)
+        d[1] = Math.min(d[1], y0)
+        d[2] = Math.max(d[2], x1)
+        d[3] = Math.max(d[3], y1)
+        return
+      }
+    }
+    this.dirty.push([x0, y0, x1, y1])
   }
 
   /** Clear everything (dev: shot setup). */
@@ -417,10 +454,16 @@ export class Region {
     if (resToo) ctx2d(this.resMask).clearRect(0, 0, this.wpx, this.hpx)
     this.state.fill(resToo ? CLEAN : SCRAPED)
     this.marked = this.total
+    if (resToo) this.cleaned = this.total
+    this.dirty = [[0, 0, this.wpx, this.hpx]]
   }
 }
 
-// ---------- per-frame composite ----------
+// ---------- composite ----------
+//
+// The card on screen is one canvas (paper + residue + foil lips + foil), refreshed only inside the
+// rectangles that stamps touched. Per frame the card is one drawImage, and the sheen is laid over
+// the foil only inside the band's bounding box.
 
 export interface FoilFrame {
   buf: HTMLCanvasElement
@@ -434,61 +477,101 @@ export function makeFoilFrame(regions: Region[]): FoilFrame {
   return { buf, bctx: ctx2d(buf) }
 }
 
+/** Bring the card composite (device px, card space) up to date where regions are dirty. dpr: device px per css px. */
+export function refreshComposite(comp: HTMLCanvasElement, paper: HTMLCanvasElement, regions: Region[], ff: FoilFrame, dpr: number) {
+  const g = ctx2d(comp)
+  const { buf, bctx: b } = ff
+  for (const R of regions) {
+   const rects = R.dirty
+   R.dirty = []
+   for (const dr of rects) {
+    const K = R.K
+    const m = 3 * dpr
+    const x0 = Math.max(0, Math.floor(dr[0] - m))
+    const y0 = Math.max(0, Math.floor(dr[1] - m))
+    const x1 = Math.min(R.wpx, Math.ceil(dr[2] + m))
+    const y1 = Math.min(R.hpx, Math.ceil(dr[3] + m))
+    if (x1 <= x0 || y1 <= y0) continue
+    const w = x1 - x0
+    const h = y1 - y0
+    const ox = Math.round(R.def.x * K)
+    const oy = Math.round(R.def.y * K)
+    // foil = tex cut by mask (in the rect)
+    const f = ctx2d(R.foil)
+    f.save()
+    f.globalCompositeOperation = 'copy'
+    f.drawImage(R.tex, x0, y0, w, h, x0, y0, w, h)
+    f.globalCompositeOperation = 'destination-in'
+    f.drawImage(R.mask, x0, y0, w, h, x0, y0, w, h)
+    f.restore()
+    // the card rect: paper, residue, dark lip, light lip, foil
+    g.save()
+    g.beginPath()
+    g.rect(ox + x0, oy + y0, w, h)
+    g.clip()
+    g.globalCompositeOperation = 'copy'
+    g.drawImage(paper, ox + x0, oy + y0, w, h, ox + x0, oy + y0, w, h)
+    g.globalCompositeOperation = 'source-over'
+    if (R.marked > 0) {
+      b.globalCompositeOperation = 'copy'
+      b.drawImage(R.resTex, x0, y0, w, h, x0, y0, w, h)
+      b.globalCompositeOperation = 'destination-in'
+      b.drawImage(R.resMask, x0, y0, w, h, x0, y0, w, h)
+      g.drawImage(buf, x0, y0, w, h, ox + x0, oy + y0, w, h)
+    }
+    if (R.coverage < 1) {
+      // lips need the mask a few px beyond the rect
+      const lx0 = Math.max(0, x0 - m)
+      const ly0 = Math.max(0, y0 - m)
+      const lw = Math.min(R.wpx, x1 + m) - lx0
+      const lh = Math.min(R.hpx, y1 + m) - ly0
+      b.globalCompositeOperation = 'copy'
+      b.drawImage(R.mask, lx0, ly0, lw, lh, lx0, ly0, lw, lh)
+      b.globalCompositeOperation = 'source-in'
+      b.fillStyle = 'rgba(40,30,20,0.38)'
+      b.fillRect(lx0, ly0, lw, lh)
+      g.drawImage(buf, lx0, ly0, lw, lh, ox + lx0 + 1.0 * dpr, oy + ly0 + 1.5 * dpr, lw, lh)
+      b.fillStyle = 'rgba(255,255,255,0.35)'
+      b.fillRect(lx0, ly0, lw, lh)
+      g.drawImage(buf, lx0, ly0, lw, lh, ox + lx0 - 0.6 * dpr, oy + ly0 - 0.8 * dpr, lw, lh)
+      g.drawImage(R.foil, x0, y0, w, h, ox + x0, oy + y0, w, h)
+    }
+    b.globalCompositeOperation = 'source-over'
+    g.restore()
+   }
+  }
+}
+
 const SHEEN_DIR = [Math.sin(100 * DEG), -Math.cos(100 * DEG)]
 
 /**
- * Draw one region onto `g`, which is in card space with 1 unit = 1 U (css size U px).
- * sheenX: centre of the sheen band, card U.
+ * The moving sheen over one region's foil. g is in card space with 1 unit = 1 U.
+ * sheenX: centre of the band, card U.
  */
-export function drawRegion(g: CanvasRenderingContext2D, ff: FoilFrame, R: Region, U: number, sheenX: number, sheenA = 0.22) {
-  if (R.coverage >= 1 && R.cleaned >= R.total) return
+export function drawSheen(g: CanvasRenderingContext2D, ff: FoilFrame, R: Region, sheenX: number, sheenA = 0.35) {
+  if (R.coverage >= 1) return
   const { buf, bctx: b } = ff
   const d = R.def
-  const W = R.wpx
+  const K = R.K
   const H = R.hpx
-  const X = d.x
-  const Y = d.y
-  const DW = d.w
-  const DH = d.h
-  const px = 1 / U // one css px in U
-  const put = (ox: number, oy: number) => g.drawImage(buf, 0, 0, W, H, X + ox * px, Y + oy * px, DW, DH)
+  const cx = (sheenX - d.x) * K
+  const cy = H / 2
+  const hw = 2 * K
+  const slope = Math.abs(SHEEN_DIR[1] / SHEEN_DIR[0])
+  const half = hw / SHEEN_DIR[0] + (H / 2) * slope + 2
+  const x0 = Math.max(0, Math.floor(cx - half))
+  const x1 = Math.min(R.wpx, Math.ceil(cx + half))
+  if (x1 <= x0) return
+  const w = x1 - x0
   b.globalCompositeOperation = 'copy'
-  // 0. residue, only where something was scraped
-  if (R.marked > 0) {
-    b.drawImage(R.resTex, 0, 0)
-    b.globalCompositeOperation = 'destination-in'
-    b.drawImage(R.resMask, 0, 0)
-    put(0, 0)
-  }
-  if (R.coverage < 1) {
-    // 1. dark lip, lower right
-    b.globalCompositeOperation = 'copy'
-    b.drawImage(R.mask, 0, 0)
-    b.globalCompositeOperation = 'source-in'
-    b.fillStyle = 'rgba(40,30,20,0.38)'
-    b.fillRect(0, 0, W, H)
-    put(1.0, 1.5)
-    // 2. light hairline, upper left (under the foil)
-    b.fillStyle = 'rgba(255,255,255,0.35)'
-    b.fillRect(0, 0, W, H)
-    put(-0.6, -0.8)
-    // 3. foil with sheen
-    b.globalCompositeOperation = 'copy'
-    b.drawImage(R.tex, 0, 0)
-    b.globalCompositeOperation = 'destination-in'
-    b.drawImage(R.mask, 0, 0)
-    b.globalCompositeOperation = 'source-atop'
-    const K = R.K
-    const cx = (sheenX - d.x) * K
-    const cy = H / 2
-    const hw = 2 * K
-    const sg = b.createLinearGradient(cx - SHEEN_DIR[0] * hw, cy - SHEEN_DIR[1] * hw, cx + SHEEN_DIR[0] * hw, cy + SHEEN_DIR[1] * hw)
-    sg.addColorStop(0, 'rgba(255,255,255,0)')
-    sg.addColorStop(0.5, `rgba(255,255,255,${sheenA})`)
-    sg.addColorStop(1, 'rgba(255,255,255,0)')
-    b.fillStyle = sg
-    b.fillRect(0, 0, W, H)
-    put(0, 0)
-  }
+  b.drawImage(R.foil, x0, 0, w, H, x0, 0, w, H)
+  b.globalCompositeOperation = 'source-atop'
+  const sg = b.createLinearGradient(cx - SHEEN_DIR[0] * hw, cy - SHEEN_DIR[1] * hw, cx + SHEEN_DIR[0] * hw, cy + SHEEN_DIR[1] * hw)
+  sg.addColorStop(0, 'rgba(255,255,255,0)')
+  sg.addColorStop(0.5, `rgba(255,255,255,${sheenA})`)
+  sg.addColorStop(1, 'rgba(255,255,255,0)')
+  b.fillStyle = sg
+  b.fillRect(x0, 0, w, H)
   b.globalCompositeOperation = 'source-over'
+  g.drawImage(buf, x0, 0, w, H, d.x + x0 / K, d.y, w / K, d.h * (H / (d.h * K)))
 }

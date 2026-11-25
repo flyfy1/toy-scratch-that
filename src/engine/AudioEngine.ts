@@ -1,27 +1,14 @@
-// 100% synthesized audio. No audio files, nothing to 404.
-
-const PENTA = [0, 2, 4, 7, 9] // major pentatonic, semitones
-
-/** Frequency of the n-th step of a major pentatonic scale above `base`. */
-export function pentaFreq(step: number, base = 220): number {
-  const oct = Math.floor(step / 5)
-  const deg = ((step % 5) + 5) % 5
-  return base * Math.pow(2, (PENTA[deg] + 12 * oct) / 12)
-}
-
-type Wave = OscillatorType
+// Scratch That sounds, 100% synthesised (spec section 4). No audio files.
 
 interface ToneOpts {
   freq: number
   freqEnd?: number
-  type?: Wave
+  type?: OscillatorType
   dur?: number
   gain?: number
   attack?: number
   delay?: number
-  pan?: number
 }
-
 interface NoiseOpts {
   dur?: number
   gain?: number
@@ -33,8 +20,10 @@ interface NoiseOpts {
   delay?: number
 }
 
-export interface Riser {
-  set(p: number): void
+/** One continuous scrape voice (one per pointer). */
+export interface ScrapeVoice {
+  /** speed px/s, foilAmt 0..1, residue 0..1 (cells turning clean), onFelt */
+  set(speed: number, foil: number, residue: number, felt: boolean): void
   stop(): void
 }
 
@@ -42,22 +31,27 @@ class AudioEngine {
   ctx: AudioContext | null = null
   private master: GainNode | null = null
   private noiseBuf: AudioBuffer | null = null
-  private recent: number[] = []
 
-  /** Call from the first pointerdown. Creates/resumes the context. */
-  unlock(): void {
+  /** Build the context ahead of the first touch (it starts suspended), so that touch is not a long task. */
+  prepare(): void {
+    if (this.ctx) return
+    this.unlock(false)
+  }
+
+  /** Call from every pointerdown; the first one creates the context if prepare() has not. */
+  unlock(resume = true): void {
     if (!this.ctx) {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
       if (!AC) return
-      const ctx = new AC()
+      const ctx = new AC({ latencyHint: 'interactive' })
       const comp = ctx.createDynamicsCompressor()
-      comp.threshold.value = -14
-      comp.knee.value = 12
-      comp.ratio.value = 6
+      comp.threshold.value = -12
+      comp.knee.value = 10
+      comp.ratio.value = 4
       comp.attack.value = 0.002
-      comp.release.value = 0.18
+      comp.release.value = 0.12
       const master = ctx.createGain()
-      master.gain.value = 0.8
+      master.gain.value = 0.9
       master.connect(comp).connect(ctx.destination)
       const len = ctx.sampleRate * 2
       const buf = ctx.createBuffer(1, len, ctx.sampleRate)
@@ -67,22 +61,15 @@ class AudioEngine {
       this.master = master
       this.noiseBuf = buf
     }
-    if (this.ctx.state !== 'running') void this.ctx.resume()
+    if (resume && this.ctx.state !== 'running') void this.ctx.resume()
+  }
+
+  suspend(): void {
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend()
   }
 
   private get ok(): boolean {
     return !!this.ctx && !!this.master
-  }
-
-  /** Voice budget for the high-rate sounds only (pop/chime/blip), so a 300-bubble
-   *  chain doesn't melt the mixer. Big one-shots (boom/chord/shatter) never go through it. */
-  private budget(max = 8, windowS = 0.05): boolean {
-    if (!this.ok) return false
-    const now = this.ctx!.currentTime
-    this.recent = this.recent.filter((t) => now - t < windowS)
-    if (this.recent.length >= max) return false
-    this.recent.push(now)
-    return true
   }
 
   tone(o: ToneOpts): void {
@@ -90,22 +77,15 @@ class AudioEngine {
     const ctx = this.ctx!
     const t0 = ctx.currentTime + (o.delay ?? 0)
     const dur = o.dur ?? 0.2
-    const attack = o.attack ?? 0.004
     const osc = ctx.createOscillator()
     osc.type = o.type ?? 'sine'
     osc.frequency.setValueAtTime(o.freq, t0)
     if (o.freqEnd) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.freqEnd), t0 + dur)
     const g = ctx.createGain()
     g.gain.setValueAtTime(0.0001, t0)
-    g.gain.exponentialRampToValueAtTime(o.gain ?? 0.3, t0 + attack)
+    g.gain.exponentialRampToValueAtTime(o.gain ?? 0.3, t0 + (o.attack ?? 0.004))
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
-    let node: AudioNode = osc.connect(g)
-    if (o.pan !== undefined && ctx.createStereoPanner) {
-      const p = ctx.createStereoPanner()
-      p.pan.value = Math.max(-1, Math.min(1, o.pan))
-      node = node.connect(p)
-    }
-    node.connect(this.master!)
+    osc.connect(g).connect(this.master!)
     osc.start(t0)
     osc.stop(t0 + dur + 0.02)
   }
@@ -134,121 +114,178 @@ class AudioEngine {
 
   // ---------- presets ----------
 
-  /** Sub-bass drop: the chest punch. */
-  subDrop(power = 1): void {
-    this.tone({ freq: 140, freqEnd: 32, type: 'sine', dur: 0.9 * power + 0.2, gain: 0.9 * power, attack: 0.003 })
-    this.tone({ freq: 70, freqEnd: 28, type: 'triangle', dur: 0.7 * power + 0.2, gain: 0.5 * power })
+  /** pointerdown on the card: a 5 ms click through 3 kHz plus a 5.2 kHz ping, pitch +-4%. */
+  coinTick(): void {
+    const p = 1 + (Math.random() * 2 - 1) * 0.04
+    this.noise({ dur: 0.005, gain: 0.16, filter: 'bandpass', freq: 3000 * p, q: 2, attack: 0.0005 })
+    this.tone({ freq: 5200 * p, dur: 0.045, gain: 0.05, attack: 0.001 })
   }
 
-  /** Big explosion: sub drop + noise blast + bright crack. */
-  boom(power = 1): void {
-    this.subDrop(power)
-    this.noise({ dur: 1.2 * power + 0.2, gain: 0.7 * power, filter: 'lowpass', freq: 6000, freqEnd: 120, attack: 0.002 })
-    this.noise({ dur: 0.12, gain: 0.5 * power, filter: 'highpass', freq: 3000 })
-  }
-
-  /** Small punchy pop with a pitched body. */
-  blip(freq: number, gain = 0.25): void {
-    if (!this.budget()) return
-    this.tone({ freq: freq * 1.5, freqEnd: freq, type: 'triangle', dur: 0.18, gain })
-    this.noise({ dur: 0.05, gain: gain * 0.6, filter: 'bandpass', freq: 2500, q: 1.5 })
-    this.tone({ freq: 160, freqEnd: 60, dur: 0.12, gain: gain * 0.9 })
-  }
-
-  /** Crisp bell-ish note for pitch escalation. */
-  chime(freq: number, gain = 0.18, pan = 0): void {
-    if (!this.budget()) return
-    this.tone({ freq, type: 'sine', dur: 0.35, gain, pan })
-    this.tone({ freq: freq * 2, type: 'triangle', dur: 0.12, gain: gain * 0.35, pan })
-  }
-
-  chord(freqs: number[], dur = 1.2, gain = 0.16, spread = 0.03): void {
-    freqs.forEach((f, i) => {
-      this.tone({ freq: f, type: 'triangle', dur, gain, delay: i * spread, attack: 0.01 })
-      this.tone({ freq: f * 1.003, type: 'sine', dur, gain: gain * 0.7, delay: i * spread, attack: 0.01 })
-    })
-  }
-
-  /** Bubble pop: fast upward sine chirp + click. */
-  pop(freq: number, gain = 0.3): void {
-    if (!this.budget()) return
-    this.tone({ freq: freq * 0.6, freqEnd: freq * 1.9, type: 'sine', dur: 0.07, gain, attack: 0.002 })
-    this.noise({ dur: 0.025, gain: gain * 0.5, filter: 'highpass', freq: 4000 })
-  }
-
-  /** Tempered-glass knock: thud + inharmonic ping + bright noise tick. */
-  glassHit(intensity = 0.5): void {
-    const i = Math.min(1, intensity)
-    this.tone({ freq: 120, freqEnd: 55, dur: 0.18, gain: 0.55 + 0.3 * i })
-    this.noise({ dur: 0.09 + 0.1 * i, gain: 0.35 + 0.35 * i, filter: 'highpass', freq: 2500 })
-    const base = 1800 + Math.random() * 1400
-    ;[1, 1.73, 2.61, 3.9].forEach((m, k) =>
-      this.tone({ freq: base * m, type: 'sine', dur: 0.25 + 0.4 * i - k * 0.05, gain: 0.08 / (k + 1) + 0.05 * i, pan: Math.random() - 0.5 }),
-    )
-  }
-
-  /** Full shatter: crash + a rain of tinkles over ~1.4 s. */
-  shatter(): void {
-    this.boom(0.7)
-    this.noise({ dur: 1.4, gain: 0.6, filter: 'highpass', freq: 1800, freqEnd: 5000, attack: 0.002 })
-    for (let k = 0; k < 40; k++) {
-      const d = Math.pow(Math.random(), 1.6) * 1.4
-      this.tone({ freq: 2500 + Math.random() * 5500, type: 'sine', dur: 0.08 + Math.random() * 0.25, gain: 0.05 + Math.random() * 0.07, delay: d, pan: Math.random() * 2 - 1 })
-    }
-  }
-
-  whoosh(gain = 0.35): void {
-    this.noise({ dur: 0.3, gain, filter: 'bandpass', freq: 400, freqEnd: 4000, q: 2, attack: 0.08 })
-  }
-
-  /** Continuous rising tension tone. set(p) with p in [0,1]. */
-  riser(): Riser {
+  /** Continuous scrape: bright scritch on foil, dull on paper, lowpassed hush on felt. */
+  scrape(): ScrapeVoice {
     if (!this.ok) return { set() {}, stop() {} }
     const ctx = this.ctx!
     const t0 = ctx.currentTime
-    const out = ctx.createGain()
-    out.gain.setValueAtTime(0.0001, t0)
-    out.gain.exponentialRampToValueAtTime(0.22, t0 + 0.05)
-    const f = ctx.createBiquadFilter()
-    f.type = 'lowpass'
-    f.Q.value = 6
-    const a = ctx.createOscillator()
-    a.type = 'sawtooth'
-    const b = ctx.createOscillator()
-    b.type = 'square'
-    const lfo = ctx.createOscillator()
-    const lfoG = ctx.createGain()
-    lfo.frequency.value = 6
-    lfoG.gain.value = 0
-    lfo.connect(lfoG).connect(out.gain)
-    a.connect(f)
-    b.connect(f)
-    f.connect(out).connect(this.master!)
-    const set = (p: number) => {
-      const t = ctx.currentTime
-      const fr = 70 * Math.pow(12, p)
-      a.frequency.setTargetAtTime(fr, t, 0.03)
-      b.frequency.setTargetAtTime(fr * 1.505, t, 0.03)
-      f.frequency.setTargetAtTime(300 + 5000 * p * p, t, 0.03)
-      lfo.frequency.setTargetAtTime(6 + 30 * p, t, 0.05)
-      lfoG.gain.setTargetAtTime(0.12 * p, t, 0.05)
-    }
-    set(0)
-    a.start()
-    b.start()
-    lfo.start()
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuf
+    src.loop = true
+    // A: the scritch, amplitude-modulated by band-limited noise at 40 to 90 Hz
+    const bpA = ctx.createBiquadFilter()
+    bpA.type = 'bandpass'
+    bpA.frequency.value = 3400
+    bpA.Q.value = 1.2
+    const amA = ctx.createGain()
+    amA.gain.value = 0.5
+    const mod = ctx.createBufferSource()
+    mod.buffer = this.noiseBuf
+    mod.loop = true
+    const modLp = ctx.createBiquadFilter()
+    modLp.type = 'bandpass'
+    modLp.frequency.value = 65
+    modLp.Q.value = 0.9
+    const modDepth = ctx.createGain()
+    modDepth.gain.value = 0.5 * 3 // the band-limited noise is quiet; scale to about +-depth
+    mod.connect(modLp).connect(modDepth).connect(amA.gain)
+    // B: the card drumming on the felt
+    const bpB = ctx.createBiquadFilter()
+    bpB.type = 'bandpass'
+    bpB.frequency.value = 420
+    bpB.Q.value = 0.8
+    const gB = ctx.createGain()
+    gB.gain.value = 0.25
+    // felt: lowpassed noise at 500 Hz
+    const lpF = ctx.createBiquadFilter()
+    lpF.type = 'lowpass'
+    lpF.frequency.value = 500
+    const gF = ctx.createGain()
+    gF.gain.value = 0
+    const gAB = ctx.createGain()
+    gAB.gain.value = 0
+    src.connect(bpA).connect(amA).connect(gAB)
+    src.connect(bpB).connect(gB).connect(gAB)
+    src.connect(lpF).connect(gF)
+    gAB.connect(this.master!)
+    gF.connect(this.master!)
+    src.start(t0, Math.random() * 1.5)
+    mod.start(t0, Math.random() * 1.5)
     let stopped = false
     return {
-      set,
+      set(speed, foil, residue, felt) {
+        if (stopped) return
+        const t = ctx.currentTime
+        const sf = Math.max(0, Math.min(1, speed / 1200))
+        // foil weight: foil voice on foil, 30% of it over residue, paper voice otherwise
+        const fw = Math.max(foil, 0.3 * residue)
+        const centre = (1300 + (3400 + 1200 * sf - 1300) * fw)
+        bpA.frequency.setTargetAtTime(centre, t, 0.015)
+        modDepth.gain.setTargetAtTime((0.2 + 0.3 * fw) * 3, t, 0.015)
+        const g = felt ? 0 : 0.22 * sf * (0.4 + 0.6 * fw)
+        gAB.gain.setTargetAtTime(g, t, 0.015)
+        gF.gain.setTargetAtTime(felt ? 0.04 * sf * 4 : 0, t, 0.015)
+      },
       stop() {
         if (stopped) return
         stopped = true
         const t = ctx.currentTime
-        out.gain.cancelScheduledValues(t)
-        out.gain.setTargetAtTime(0.0001, t, 0.015)
-        ;[a, b, lfo].forEach((o) => o.stop(t + 0.1))
+        gAB.gain.setTargetAtTime(0, t, 0.02)
+        gF.gain.setTargetAtTime(0, t, 0.02)
+        src.stop(t + 0.15)
+        mod.stop(t + 0.15)
       },
     }
+  }
+
+  /** Wooden "tok" (ported from knock's preset): three sine modes, a strike click, a body thump. */
+  woodKnock(v = 0.8, f0 = 520, delay = 0): void {
+    if (!this.ok) return
+    const ctx = this.ctx!
+    const t0 = ctx.currentTime + delay
+    const vel = Math.max(0.15, Math.min(1, v))
+    const f = f0 * (1 + (Math.random() * 2 - 1) * 0.015)
+    const out = ctx.createGain()
+    out.gain.value = 0.55 + 0.45 * vel
+    out.connect(this.master!)
+    const modes: [number, number, number][] = [
+      [1, 0.09, 0.5],
+      [2.35, 0.05, 0.2 * (0.6 + 0.4 * vel)],
+      [3.9, 0.03, 0.08 * (0.4 + 0.6 * vel)],
+    ]
+    for (const [m, tau, gain] of modes) {
+      const osc = ctx.createOscillator()
+      osc.frequency.setValueAtTime(f * m * 1.012, t0)
+      osc.frequency.exponentialRampToValueAtTime(f * m, t0 + 0.025)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0, t0)
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.0015)
+      g.gain.setTargetAtTime(0, t0 + 0.0015, tau)
+      osc.connect(g).connect(out)
+      osc.start(t0)
+      osc.stop(t0 + tau * 9 + 0.01)
+    }
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuf
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 1800 * (0.85 + 0.3 * vel)
+    bp.Q.value = 1.1
+    const ng = ctx.createGain()
+    ng.gain.setValueAtTime(0, t0)
+    ng.gain.linearRampToValueAtTime(0.25 * (0.5 + 0.5 * vel), t0 + 0.0008)
+    ng.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.006)
+    src.connect(bp).connect(ng).connect(out)
+    src.start(t0, Math.random() * 1.5)
+    src.stop(t0 + 0.01)
+  }
+
+  /** Small bell: one partial-rich sine note. */
+  bell(f: number, gain = 0.1, delay = 0): void {
+    this.tone({ freq: f, dur: 1.2, gain, delay })
+    this.tone({ freq: f * 2.76, dur: 0.4, gain: gain * 0.22, delay })
+  }
+
+  /** Win: three bells 784, 988, 1175 Hz, 90 ms apart. No fanfare. */
+  win(): void {
+    ;[784, 988, 1175].forEach((f, i) => this.bell(f, 0.1, i * 0.09))
+  }
+
+  /** Thanks: a 120 ms lowpassed noise puff. */
+  puff(): void {
+    this.noise({ dur: 0.12, gain: 0.08, filter: 'lowpass', freq: 900, attack: 0.02 })
+  }
+
+  /** Red marker squeak: sine 1.8 to 2.4 kHz in 180 ms with a 30 Hz vibrato. */
+  squeak(delay = 0): void {
+    if (!this.ok) return
+    const ctx = this.ctx!
+    const t0 = ctx.currentTime + delay
+    const osc = ctx.createOscillator()
+    osc.frequency.setValueAtTime(1800, t0)
+    osc.frequency.linearRampToValueAtTime(2400, t0 + 0.18)
+    const lfo = ctx.createOscillator()
+    lfo.frequency.value = 30
+    const lg = ctx.createGain()
+    lg.gain.value = 60
+    lfo.connect(lg).connect(osc.frequency)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t0)
+    g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.02)
+    g.gain.setValueAtTime(0.03, t0 + 0.15)
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18)
+    osc.connect(g).connect(this.master!)
+    osc.start(t0)
+    lfo.start(t0)
+    osc.stop(t0 + 0.2)
+    lfo.stop(t0 + 0.2)
+  }
+
+  /** Card in or out: a short paper fwip. */
+  fwip(gain = 0.12): void {
+    this.noise({ dur: 0.16, gain, filter: 'bandpass', freq: 600, freqEnd: 4000, q: 1.6, attack: 0.04 })
+  }
+
+  /** Card lands: 30 ms of noise through a 900 Hz lowpass. */
+  slap(): void {
+    this.noise({ dur: 0.03, gain: 0.14, filter: 'lowpass', freq: 900, attack: 0.001 })
   }
 }
 

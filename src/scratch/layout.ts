@@ -20,9 +20,10 @@ export interface Layout {
 }
 
 export function computeLayout(w: number, h: number, dpr: number): Layout {
-  const CW = Math.min(0.86 * w, (0.6 * h) / 1.38, 460)
+  // lead review 2026-11-25: bigger on phones (about 92% of the width) and a little lower
+  const CW = Math.min(0.92 * w, (0.64 * h) / 1.38, 460)
   const U = CW / CARD_W_U
-  return { w, h, dpr, CW, CH: 1.38 * CW, U, K: U * dpr, cx: w / 2, cy: 0.47 * h }
+  return { w, h, dpr, CW, CH: 1.38 * CW, U, K: U * dpr, cx: w / 2, cy: 0.495 * h }
 }
 
 /** Where the card is right now (it slides in and out). */

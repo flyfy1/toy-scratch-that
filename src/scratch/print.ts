@@ -17,6 +17,8 @@ export interface CardSpec {
   prizeText: string
   serial: number
   gift: boolean
+  /** the forbidden strip's hidden line (the third time in a session it changes) */
+  voidText: string
 }
 
 const CAPTION: Record<SymbolId, Parameters<typeof t>[0]> = {
@@ -37,12 +39,12 @@ function shuffle<T>(r: Rng, a: T[]): T[] {
 }
 
 /** Spec 5: card 1 wins, card 2 is a near miss, then 35 / 40 / 25. */
-export function makeCard(seed: number, index: number, serial: number, giftText?: string): CardSpec {
+export function makeCard(seed: number, index: number, serial: number, giftText?: string, ord = index, voidAgain = false): CardSpec {
   const r = rng(seed * 7919 + index * 104729 + 13)
   let kind: CardKind
   if (giftText) kind = 'gift'
-  else if (index === 0) kind = 'win'
-  else if (index === 1) kind = 'near'
+  else if (ord === 0) kind = 'win'
+  else if (ord === 1) kind = 'near'
   else {
     const x = r()
     kind = x < 0.35 ? 'win' : x < 0.75 ? 'near' : 'thanks'
@@ -90,7 +92,7 @@ export function makeCard(seed: number, index: number, serial: number, giftText?:
         : kind === 'near'
           ? t('scratch_near')
           : t('scratch_thanks')
-  return { index, seed, kind, grid, winCells, prizeId, prizeText, serial, gift: kind === 'gift' }
+  return { index, seed, kind, grid, winCells, prizeId, prizeText, serial, gift: kind === 'gift', voidText: t(voidAgain ? 'scratch_void_again' : 'scratch_void_reveal') }
 }
 
 // ---------- shape ----------
@@ -234,8 +236,8 @@ export function bakeCard(card: CardSpec, perf: Perf, K: number): HTMLCanvasEleme
   g.fill()
   g.fillStyle = '#FFFFFF'
   g.textAlign = 'center'
-  fitFont(g, t('scratch_void_reveal'), 800, 0.66, 6.4)
-  g.fillText(t('scratch_void_reveal'), 15, 24.14)
+  fitFont(g, card.voidText, 800, 0.66, 6.4)
+  g.fillText(card.voidText, 15, 24.14)
 
   printFooter(g, card, r, px)
 
