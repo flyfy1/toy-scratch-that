@@ -39,6 +39,8 @@ export default function App() {
   // a recipient answering: the box opens empty, with its own placeholder; done typing, the sheet comes back
   const box = useRef<HTMLInputElement>(null)
   const [ph, setPh] = useState('')
+  /** the box was typed in this visit (a tap in and out of the sender's revealed prize is not writing one) */
+  const edited = useRef(false)
   const [touched, setTouched] = useState(false)
   const [counts, setCounts] = useState({ cards: 0, wins: 0 })
   const [toast, setToast] = useState<{ text: string; link?: string; id: number } | null>(null)
@@ -95,6 +97,7 @@ export default function App() {
   }, [initial])
 
   const onText = (value: string) => {
+    edited.current = true
     setText(value)
     const words = parseWords(value, MAX_GIFT)
     stats.words = words
@@ -105,15 +108,19 @@ export default function App() {
     if (words.length) gaTimer.current = window.setTimeout(() => track('gift_written', { count: words.length }), 2000)
   }
 
-  live.reply = () => {
-    onText('')
-    setPh(t('scratch_reply_ph'))
-    box.current?.focus()
-  }
+  // the answer is offered only once the prize is out (before that, clearing the box would lose it)
+  live.reply = veiled
+    ? undefined
+    : () => {
+        onText('')
+        setPh(t('scratch_reply_ph'))
+        box.current?.focus()
+      }
   /** Done writing a prize: the link carries it now, so the gift ticket is offered as the slip (the answer: the sheet). */
   const written = () => {
     const words = parseWords(text, MAX_GIFT)
-    if (veiled || !words.length) return
+    if (veiled || !words.length || !edited.current) return
+    edited.current = false
     window.clearTimeout(urlTimer.current)
     syncGiftToUrl(words)
     if (ph) {
