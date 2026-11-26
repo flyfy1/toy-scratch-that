@@ -2,6 +2,7 @@
 // The text every toy shares (names for the More menu, Share, About) lives in i18n.ts.
 
 const en = {
+  name_scratch: "Scratch That",
   scratch_hidden: "Someone left you a prize",
   scratch_reply_ph: "Write a prize for them",
   scratch_title_gift: "Someone left you a scratch card",
@@ -48,6 +49,7 @@ const en = {
 }
 
 const zhCN: typeof en = {
+  name_scratch: "刮一张",
   scratch_hidden: "有人给你留了奖品",
   scratch_reply_ph: "写一个给 TA 的奖品",
   scratch_title_gift: "有人给你留了一张刮刮卡",
@@ -94,6 +96,7 @@ const zhCN: typeof en = {
 }
 
 const es: typeof en = {
+  name_scratch: "Rasca y Verás",
   scratch_hidden: "Alguien te ha dejado un premio",
   scratch_reply_ph: "Escribe un premio para esa persona",
   scratch_title_gift: "Alguien te ha dejado un rasca",
@@ -140,6 +143,7 @@ const es: typeof en = {
 }
 
 const fr: typeof en = {
+  name_scratch: "Grattez Voir",
   scratch_hidden: "Quelqu’un vous a laissé un lot",
   scratch_reply_ph: "Écrivez-lui un lot",
   scratch_title_gift: "Quelqu’un vous a laissé un ticket à gratter",
@@ -186,6 +190,7 @@ const fr: typeof en = {
 }
 
 const ja: typeof en = {
+  name_scratch: "けずってスクラッチ",
   scratch_hidden: "あなたに賞品が届いています",
   scratch_reply_ph: "相手への賞品を書く",
   scratch_title_gift: "スクラッチが一枚届いています",
