@@ -1,7 +1,7 @@
 // Scratch That / 刮一张: a paper scratch card on a felt counter, scraped with a brass token.
 // Cozy rules: no shake / flash / hit-stop / additive particles. Springs, contact shadows, small sounds.
 import { t, tx } from './i18n'
-import { track } from './analytics'
+import { act, track } from './analytics'
 import { audio, type ScrapeVoice } from './engine/AudioEngine'
 import { type Stage, haptic, setupCanvas } from './engine/juice'
 import { type CardPose, type Layout, REGIONS, REST_ROT, computeLayout, toCard, toScreen } from './scratch/layout'
@@ -405,6 +405,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     }
     lastInput = performance.now()
     strokeSeq++
+    act('stroke')
     const ang = chipR() * Math.PI * 2
     const p: Ptr = {
       id,
@@ -513,6 +514,7 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
     if (!c.prizeKnown && prize.coverage >= 0.6) {
       c.prizeKnown = true
       sessionCards++
+      act('card')
       lifeCards++
       const won = c.spec.kind === 'win' || c.spec.kind === 'gift'
       if (won) lifeWins++
