@@ -13,7 +13,7 @@ export interface Prize {
   id: string
   sym: SymbolId
   tier: Tier
-  /** toy host the toast opens */
+  /** the toy the prize names: its toast gets a portal's second line (portals.ts, prize_<obj>) */
   link?: string
   when?: When
   /** may be the first win on a new device */

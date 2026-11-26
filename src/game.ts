@@ -19,7 +19,8 @@ const DEV = import.meta.env.DEV
 const SEED = DEV && Q.has('seed') ? Number(Q.get('seed')) >>> 0 || 1 : (Math.random() * 1e9) >>> 0
 const OG = DEV && Q.get('og') === '1'
 // Dev only: ?prize=<id> deals that prize on every win, ?now=<ISO time> sets the clock for the timed lines
-const DEV_PRIZE = DEV ? byId(Q.get('prize') ?? '') : undefined
+// ?prize= (dev; and with ?portal=1, so the portal check on the live host can reach the prize links)
+const DEV_PRIZE = DEV || Q.get('portal') === '1' ? byId(Q.get('prize') ?? '') : undefined
 const clock = () => (DEV && Q.has('now') ? new Date(Q.get('now')!) : new Date())
 
 // Dev only: ?seed=<n> also pins Math.random, so frame sheets repeat.
@@ -92,7 +93,8 @@ export interface GameEvents {
   onFirst(): void
   /** lifetime cards finished, lifetime wins */
   onCounts(cards: number, wins: number): void
-  onToast(text: string, link?: string): void
+  /** `to`: the toy a prize names (its toast gets a portal's second line) */
+  onToast(text: string, to?: string): void
   /** the card on the table is done (prize known): show "Another one" */
   onSettled(done: boolean): void
   /** A prize came out from under the silver. `snap` is the ticket on the felt, as it is. */
@@ -543,10 +545,10 @@ export function startGame(canvas: HTMLCanvasElement, ev: GameEvents, gifts: stri
           gl: c.spec.gift ? giftLine(c.spec.prizeText) : 0,
         }
       if (pz?.fx === 'jackpot') jackpot(c, tm)
-      const link = pz?.link ? `https://${pz.link}.integ.life/` : undefined
+      const to = pz?.link
       const text = c.spec.prizeText
       window.setTimeout(() => {
-        if (card === c) ev.onToast(text, link)
+        if (card === c) ev.onToast(text, to)
       }, 250)
       ev.onSettled(true)
     }

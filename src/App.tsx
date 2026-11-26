@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MoreMenu, pillClass } from './components/MoreMenu'
 import { applyMeta, locale, t } from './i18n'
 import { startAnalytics, track } from './analytics'
-import { landing, live, openSheet, parseWords, sharePeak, stats, trackLanding } from './share'
+import { arrive, landing, live, openSheet, parseWords, prizeLine, sharePeak, stats, trackLanding } from './share'
 import { MAX_GIFT, giftFromUrl, syncGiftToUrl } from './gift'
 import { Hint } from './components/Hint'
 import { startGame, type GameApi } from './game'
@@ -25,6 +25,10 @@ function nextTop() {
   return Math.min(0.495 * h + 0.69 * CW + 14, h - 116)
 }
 
+/** the prize links: the toy a prize names, and the portal object it is (portals.ts) */
+const PRIZE_OBJ: Record<string, string> = { purr: 'prize_cat', knock: 'prize_merit', pop: 'prize_pop', squish: 'prize_squish', smash: 'prize_glass' }
+type PrizeLine = NonNullable<Awaited<ReturnType<typeof prizeLine>>>
+
 export default function App() {
   const ref = useRef<HTMLCanvasElement>(null)
   const api = useRef<GameApi | null>(null)
@@ -43,7 +47,8 @@ export default function App() {
   const edited = useRef(false)
   const [touched, setTouched] = useState(false)
   const [counts, setCounts] = useState({ cards: 0, wins: 0 })
-  const [toast, setToast] = useState<{ text: string; link?: string; id: number } | null>(null)
+  const [toast, setToast] = useState<{ text: string; line?: PrizeLine; id: number } | null>(null)
+  const lineRef = useRef<PrizeLine | null>(null)
   const [done, setDone] = useState(false)
   const [pillY, setPillY] = useState(nextTop)
 
@@ -52,6 +57,9 @@ export default function App() {
     startAnalytics('scratch')
     stats.words = initial
     trackLanding({ words: initial.length })
+    let toastId = 0
+    // a portal visit (twirl's coin): the tag only
+    arrive('scratch', ['top-[5.6rem]', 'bg-[#FFF4D6] text-[#3A2A1C] font-medium'])
     const base = document.title
     if (shown < initial.length) document.title = t('scratch_title_gift')
     const g = startGame(
@@ -66,10 +74,29 @@ export default function App() {
           stats.k = wins
           setCounts({ cards, wins })
         },
-        onToast(msg, link) {
-          setToast({ text: msg, link, id: Date.now() })
+        onToast(msg, to) {
+          const id = Date.now()
+          const off = () => {
+            lineRef.current?.gone()
+            lineRef.current = null
+          }
+          off()
+          toastId = id
+          setToast({ text: msg, id })
           window.clearTimeout(toastTimer.current)
-          toastTimer.current = window.setTimeout(() => setToast(null), 3200)
+          toastTimer.current = window.setTimeout(() => {
+            off()
+            toastId = 0
+            setToast(null)
+          }, 3200)
+          // a prize that names a toy: a second line, the only link, when the portal caps allow it
+          if (to && PRIZE_OBJ[to])
+            prizeLine(PRIZE_OBJ[to]).then((l) => {
+              if (!l || toastId !== id) return
+              lineRef.current = l
+              l.shown()
+              setToast((cur) => (cur?.id === id ? { ...cur, line: l } : cur))
+            })
         },
         onSettled(d) {
           setDone(d)
@@ -158,14 +185,13 @@ export default function App() {
         <div
           key={toast.id}
           className="knock-toast fixed inset-x-0 top-[5.6rem] z-10 px-6 text-center text-base font-medium"
-          style={{ color: 'rgba(255,244,214,0.95)', pointerEvents: toast.link ? 'auto' : 'none' }}
+          style={{ color: 'rgba(255,244,214,0.95)', pointerEvents: 'none' }}
         >
-          {toast.link ? (
-            <a href={toast.link} className="underline decoration-white/40 underline-offset-4">
-              {toast.text}
+          {toast.text}
+          {toast.line && (
+            <a href={toast.line.href} aria-label={toast.line.label} onClick={toast.line.go} onPointerDown={(e) => e.stopPropagation()} className="mx-auto block w-fit py-2.5 text-[13px] font-normal opacity-75 underline decoration-white/40 underline-offset-4" style={{ pointerEvents: 'auto' }}>
+              {toast.line.text}
             </a>
-          ) : (
-            toast.text
           )}
         </div>
       )}
