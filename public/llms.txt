@@ -45,7 +45,7 @@ Yes. The scraping is synthesised live in the browser with the Web Audio API and 
 English, 简体中文 (Simplified Chinese), Español, Français and 日本語 (Japanese). The language is picked automatically from your browser settings; any other language falls back to English.
 
 **Who made it?**
-Integ Life (integ.life). Scratch That is one of nine small stress-relief toys, together with Charge Burst, Void Harvest, Glass Smash, Chain Pop, Knock on Wood, Lap Cat, Squishy Bun, Peel Off. More games are at games.integ.life.
+Integ Life (integ.life). Scratch That is one of ten small stress-relief toys, together with Charge Burst, Void Harvest, Glass Smash, Chain Pop, Knock on Wood, Lap Cat, Squishy Bun, Peel Off, Give It a Twirl. More games are at games.integ.life.
 
 **Is any personal data collected?**
 No account and no personal data. At most, anonymous usage statistics (page views and play counts) are collected.
@@ -60,4 +60,5 @@ No account and no personal data. At most, anonymous usage statistics (page views
 - [Lap Cat](https://purr.integ.life/): Pet a soft, purring cat on your screen. Mind the belly.
 - [Squishy Bun](https://squish.integ.life/): Squeeze a soft mochi bun. It slowly forgives you.
 - [Peel Off](https://peel.integ.life/): Peel the film off a brand-new phone. Then try to put the film down.
+- [Give It a Twirl](https://twirl.integ.life/): A new skirt on a dress form. Swipe to spin it and watch the hem fly out flat.
 - [Integ Games](https://games.integ.life/): more browser games
